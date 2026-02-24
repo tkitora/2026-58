@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/googleMaps/loader";
 import { createStreetViewGame } from "../lib/googleMaps/streetviewGame";
-import type { Question, AnswerResult } from "../lib/googleMaps/types";
+import type { Answers, Question, AnswerResult } from "../lib/googleMaps/types";
 
 function SingleGame() {
   const panoRef = useRef<HTMLDivElement | null>(null);
@@ -61,12 +61,23 @@ function SingleGame() {
     setResult(null);
     setOpen(false);
 
-    const mode = Math.random() < 0.5 ? "NARA" : "NOT_NARA";
+    // SingleGame.tsx の nextQuestion 内
+    const rand = Math.random();
+    let mode: "NARA" | "DOU" | "OTHER";
+
+    if (rand < 0.2) {
+      mode = "DOU";       // 0.0〜0.2未満 (20%)
+    } else if (rand < 0.7) {
+      mode = "NARA";      // 0.2〜0.7未満 (50%)
+    } else {
+      mode = "OTHER";     // 0.7〜1.0未満 (30%)
+    }
+
     const q = await gameRef.current.newView({ mode, panorama: panoramaRef.current });
     setQuestion(q);
   }
 
-  function submit(userSaysNara: boolean) {
+  function submit(userSaysNara: Answers) {
     if (!gameRef.current || !question) return;
     const r = gameRef.current.checkResult(question, userSaysNara);
     setResult(r);
@@ -78,8 +89,9 @@ function SingleGame() {
       <div id="mainDiv">
         <div id="pano" ref={panoRef} style={{ width: "100%", height: 400 }} />
         <div id="BtnDiv">
-          <button onClick={() => submit(true)}>なら！</button>
-          <button onClick={() => submit(false)}>なら以外！</button>
+          <button onClick={() => submit("奈良県")}>なら！</button>
+          <button onClick={() => submit("北海道")}>どう！</button>
+          <button onClick={() => submit("OTHER")}>それ以外！</button>
         </div>
       </div>
 

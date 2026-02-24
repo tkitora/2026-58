@@ -1,5 +1,5 @@
 // src/lib/googleMaps/streetviewGame.ts
-import type { AnswerResult, Question } from "./types";
+import type { Answers, AnswerResult, Question } from "./types";
 
 export function createStreetViewGame() {
   const sv = new google.maps.StreetViewService();
@@ -58,11 +58,11 @@ async function getPanoramaNear(
 
   /**
    * newView: 「新しいStreetViewを出す」ロジック
-   * - mode: "NARA" なら奈良限定、"NOT_NARA" なら奈良以外
+   * - mode: "NARA" なら奈良限定、"DOU" なら北海道限定、"OTHER" ならそれ以外
    * - panorama: 渡すと、ここで setPano までやる（UI側が楽）
    */
   async function newView(params: {
-    mode: "NARA" | "NOT_NARA";
+    mode: "NARA" | "DOU" | "OTHER";
     panorama?: google.maps.StreetViewPanorama;
     maxTries?: number;
   }): Promise<Question> {
@@ -93,6 +93,30 @@ async function getPanoramaNear(
         }
       }
       throw new Error("奈良県内でStreet Viewが見つからなかった");
+    }else if(mode === "DOU") {
+      const bounds = await geocodeViewport("北海道, 日本");
+      for (let tries = 0; tries < maxTries; tries++) {
+        const loc = randomPointInBounds(bounds);
+        try {
+          const data = await getPanoramaNear(loc, 5000);
+            const latLng = data.latLng;
+            if (!bounds.contains(latLng)) continue;
+
+            const pref = await getPrefectureName(latLng);
+            if (pref !== "北海道") continue;
+
+            if (panorama) {
+              panorama.setPano(data.pano);
+              panorama.setVisible(true);
+            }
+
+          return { panoLatLng: latLng, prefName: pref };
+        } 
+        catch {
+          // try next
+        }
+      }
+      throw new Error("北海道内でStreet Viewが見つからなかった");
     }
 
     // NOT_NARA
@@ -121,10 +145,17 @@ async function getPanoramaNear(
   /**
    * checkResult: 答え合わせ（UI非依存）
    */
-  function checkResult(question: Question, userSaysNara: boolean): AnswerResult {
-    const isNara = question.prefName === "奈良県";
+  function checkResult(question: Question, userSays: Answers): AnswerResult {
+    console.log("正解データ:", question.prefName);
+    console.log("ユーザー入力:", userSays);
+    let isCorrect = false;
+    if(userSays === "OTHER"){
+      isCorrect = (question.prefName !== "奈良県" && question.prefName !== "北海道");
+    }else{
+      isCorrect = (question.prefName === userSays);
+    }
     return {
-      ok: userSaysNara === isNara,
+      ok: isCorrect,
       correctPref: question.prefName,
       correctLatLng: question.panoLatLng,
     };
