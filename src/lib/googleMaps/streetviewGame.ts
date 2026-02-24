@@ -1,5 +1,8 @@
 // src/lib/googleMaps/streetviewGame.ts
-import type { AnswerResult, Question } from "./types";
+import type { Answers, AnswerResult, Question } from "./types";
+
+// 指定したミリ秒だけ待つ関数
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function createStreetViewGame() {
   const sv = new google.maps.StreetViewService();
@@ -30,10 +33,25 @@ export function createStreetViewGame() {
     const res = await geocoder.geocode({ location: latLng });
     const first = res.results?.[0];
     if (!first) return null;
+    
+    // 州・県（administrative_area_level_1）を取得
     const pref = first.address_components.find((c) =>
       c.types.includes("administrative_area_level_1")
-    );
-    return pref?.long_name ?? null;
+    )?.long_name;
+    
+    // 国（country）を取得
+    const country = first.address_components.find((c) =>
+      c.types.includes("country")
+    )?.long_name;
+
+    if (!pref) return null;
+
+    // もし国名が取得できて、かつ「日本」じゃなければ、国名をくっつけて返す
+    if (country && country !== "日本" && country !== "Japan") {
+      return `${country} : ${pref}`;
+    }
+
+    return pref; // 日本の場合は今まで通り県名だけを返す
   }
 
   type SafePanoData = {
@@ -56,17 +74,40 @@ async function getPanoramaNear(
   return { pano, latLng };
 }
 
+//段階的に半径を広げて最寄りのストリートビューを探す関数
+async function getPanoramaProgressive(
+  loc: google.maps.LatLng,
+  radii: number[] = [500, 2000, 10000, 50000] // 最大50kmまで探すわ
+): Promise<{ pano: string; latLng: google.maps.LatLng }> {
+  for (const radius of radii) {
+    try {
+      const res = await sv.getPanorama({ location: loc, radius });
+      if (res.data?.location?.pano && res.data?.location?.latLng) {
+        return {
+          pano: res.data.location.pano,
+          latLng: res.data.location.latLng
+        };
+      }
+    } catch (e) {
+      // この半径で見つからなければ、次の（より広い）半径へ進むだけだからエラーは無視
+      await sleep(300);
+    }
+  }
+  // 最大半径（50km）まで広げてもダメだった場合（海のど真ん中など）はエラーを投げる
+  throw new Error("指定した範囲内にストリートビューが見つかりませんでした");
+}
+
   /**
    * newView: 「新しいStreetViewを出す」ロジック
-   * - mode: "NARA" なら奈良限定、"NOT_NARA" なら奈良以外
+   * - mode: "NARA" なら奈良限定、"DOU" なら北海道限定、"OTHER" ならそれ以外
    * - panorama: 渡すと、ここで setPano までやる（UI側が楽）
    */
   async function newView(params: {
-    mode: "NARA" | "NOT_NARA";
+    mode: "NARA" | "DOU" | "OTHER";
     panorama?: google.maps.StreetViewPanorama;
     maxTries?: number;
   }): Promise<Question> {
-    const { mode, panorama, maxTries = mode === "NARA" ? 40 : 80 } = params;
+    const { mode, panorama, maxTries = mode === "NARA" || mode === "DOU" ? 40 : 80 } = params;
 
     if (mode === "NARA") {
       const bounds = await geocodeViewport("奈良県, 日本");
@@ -76,10 +117,16 @@ async function getPanoramaNear(
         try {
           const data = await getPanoramaNear(loc, 5000);
             const latLng = data.latLng;
-            if (!bounds.contains(latLng)) continue;
+            if (!bounds.contains(latLng)) {
+              await sleep(300);
+              continue;
+            }
 
             const pref = await getPrefectureName(latLng);
-            if (pref !== "奈良県") continue;
+            if (pref !== "奈良県") {
+              await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
+              continue;
+            }
 
             if (panorama) {
               panorama.setPano(data.pano);
@@ -88,43 +135,133 @@ async function getPanoramaNear(
 
           return { panoLatLng: latLng, prefName: pref };
         } 
-        catch {
+        catch (e) {
+          await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
           // try next
         }
       }
       throw new Error("奈良県内でStreet Viewが見つからなかった");
+
+    }else if(mode === "DOU") {
+      const bounds = await geocodeViewport("北海道, 日本");
+      for (let tries = 0; tries < maxTries; tries++) {
+        const loc = randomPointInBounds(bounds);
+        try {
+          const data = await getPanoramaNear(loc, 5000);
+            const latLng = data.latLng;
+            if (!bounds.contains(latLng)) {
+              await sleep(300);
+              continue;
+            }
+
+            const pref = await getPrefectureName(latLng);
+            if (pref !== "北海道") {
+              await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
+              continue;
+            }
+
+            if (panorama) {
+              panorama.setPano(data.pano);
+              panorama.setVisible(true);
+            }
+
+          return { panoLatLng: latLng, prefName: pref };
+        } 
+        catch (e) {
+          await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
+          // try next
+        }
+      }
+      throw new Error("北海道内でStreet Viewが見つからなかった");
     }
 
-    // NOT_NARA
+// // NOT_NARA（それ以外！の時）
+//     for (let tries = 0; tries < maxTries; tries++) {
+//       // 再び、日本全体を覆う巨大な箱から完全ランダムに座標を引くわ
+//       const loc = randomLatLngInJapanBox(); 
+//       try {
+//         // お友達のロジックで、50km圏内まで段階的に探して一番近い道路に吸い寄せる！
+//         const data = await getPanoramaProgressive(loc, [1000, 5000, 20000, 50000]);
+//         const latLng = data.latLng;
+//         const pref = await getPrefectureName(latLng);
+
+//         // 奈良と北海道以外なら確定
+//         if (pref && !pref.includes("奈良県") && !pref.includes("北海道")) {
+//           if (panorama) {
+//             panorama.setPano(data.pano);
+//             panorama.setVisible(true);
+//           }
+//           return { panoLatLng: latLng, prefName: pref };
+//         } else {
+//           // 偶然、奈良や北海道に吸い寄せられた場合は少し待ってやり直し
+//           await sleep(300);
+//         }
+//       } 
+//       catch (e) {
+//         // 50km探しても見つからなかった（太平洋のど真ん中など）場合は、
+//         // 429エラーを防ぐために必ずスリープを挟んでから次のガチャを引く
+//         await sleep(300);
+//       }
+//     }
+//     throw new Error("奈良以外のStreet View地点が見つからなかった");
+//土地名ハードコードは避けたいので、残せるなら残したい、というわけでコメントアウト
+
+// NOT_NARA（それ以外！の時）
+    const otherTargets = [
+      "青森県, 日本", "岩手県, 日本", "宮城県, 日本", "秋田県, 日本", "山形県, 日本", "福島県, 日本",
+      "茨城県, 日本", "栃木県, 日本", "群馬県, 日本", "埼玉県, 日本", "千葉県, 日本", "神奈川県, 日本",
+      "新潟県, 日本", "富山県, 日本", "石川県, 日本", "福井県, 日本", "山梨県, 日本", "長野県, 日本", "岐阜県, 日本",
+      "静岡県, 日本", "愛知県, 日本", "三重県, 日本", "滋賀県, 日本", "京都府, 日本", "大阪府, 日本", "兵庫県, 日本",
+      "和歌山県, 日本", "鳥取県, 日本", "島根県, 日本", "岡山県, 日本", "広島県, 日本", "山口県, 日本",
+      "徳島県, 日本", "香川県, 日本", "愛媛県, 日本", "高知県, 日本",
+      "福岡県, 日本", "佐賀県, 日本", "熊本県, 日本", "大分県, 日本", "宮崎県, 日本", 
+      "東京都八王子市, 日本", "東京都奥多摩町, 日本", "長崎県佐世保市, 日本", "鹿児島県霧島市, 日本", "沖縄県名護市, 日本",
+      "ソウル, 大韓民国", "釜山, 大韓民国", "台北, 台湾", "台中, 台湾"
+    ];
+
+    const target = otherTargets[Math.floor(Math.random() * otherTargets.length)];
+    const bounds = await geocodeViewport(target);
+
     for (let tries = 0; tries < maxTries; tries++) {
-      const loc = randomLatLngInJapanBox();
+      // 陸地の枠内でピンを刺す
+      const loc = randomPointInBounds(bounds); 
       try {
-        const data = await getPanoramaNear(loc, 10000);
+        // お友達のロジックで、50km圏内まで段階的に探して一番近い道路に吸い寄せる！
+        const data = await getPanoramaProgressive(loc, [1000, 5000, 20000, 50000]);
         const latLng = data.latLng;
         const pref = await getPrefectureName(latLng);
 
-        if (pref && pref !== "奈良県") {
+        if (pref && !pref.includes("奈良県") && !pref.includes("北海道")) {
           if (panorama) {
             panorama.setPano(data.pano);
             panorama.setVisible(true);
           }
           return { panoLatLng: latLng, prefName: pref };
+        } else {
+          await sleep(300);
         }
       } 
-      catch {
-        // try next
+      catch (e) {
+        await sleep(300);
       }
     }
     throw new Error("奈良以外のStreet View地点が見つからなかった");
-  }
+    }
 
   /**
    * checkResult: 答え合わせ（UI非依存）
    */
-  function checkResult(question: Question, userSaysNara: boolean): AnswerResult {
-    const isNara = question.prefName === "奈良県";
+  function checkResult(question: Question, userSays: Answers): AnswerResult {
+    console.log("正解データ:", question.prefName);
+    console.log("ユーザー入力:", userSays);
+    let isCorrect = false;
+    if(userSays === "OTHER"){
+      isCorrect = (question.prefName !== "奈良県" && question.prefName !== "北海道");
+    }else{
+      isCorrect = (question.prefName === userSays);
+    }
     return {
-      ok: userSaysNara === isNara,
+      ok: isCorrect,
       correctPref: question.prefName,
       correctLatLng: question.panoLatLng,
     };
