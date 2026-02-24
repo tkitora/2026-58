@@ -66,7 +66,7 @@ async function getPanoramaNear(
     panorama?: google.maps.StreetViewPanorama;
     maxTries?: number;
   }): Promise<Question> {
-    const { mode, panorama, maxTries = mode === "NARA" ? 40 : 80 } = params;
+    const { mode, panorama, maxTries = mode === "NARA" || mode === "DOU" ? 40 : 80 } = params;
 
     if (mode === "NARA") {
       const bounds = await geocodeViewport("奈良県, 日本");
