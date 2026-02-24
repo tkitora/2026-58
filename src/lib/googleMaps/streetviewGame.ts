@@ -127,7 +127,7 @@ async function getPanoramaNear(
         const latLng = data.latLng;
         const pref = await getPrefectureName(latLng);
 
-        if (pref && pref !== "奈良県") {
+        if (pref && pref !== "奈良県" && pref !== "北海道") {
           if (panorama) {
             panorama.setPano(data.pano);
             panorama.setVisible(true);
