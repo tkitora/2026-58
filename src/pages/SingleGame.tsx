@@ -96,14 +96,14 @@ function SingleGame() {
       const rand = Math.random();
       let mode: "NARA" | "DOU" | "OTHER";
 
-      if (rand < 0.2) {
-        mode = "DOU";       // 20%
-      } else if (rand < 0.7) {
+      if (rand < 0.3) {
+        mode = "DOU";       // 30%
+      } else if (rand < 0.8) {
         mode = "NARA";      // 50%
       } else {
-        mode = "OTHER";     // 30%
+        mode = "OTHER";     // 20%
       }
-
+      console.log(`次の問題のモード: ${mode}`); // デバッグ用にモードをコンソールに表示
       const q = await gameRef.current.newView({ mode, panorama: panoramaRef.current });
       setQuestion(q);
     } catch (error) {
