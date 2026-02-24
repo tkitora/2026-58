@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/googleMaps/loader";
 import { createStreetViewGame } from "../lib/googleMaps/streetviewGame";
 import type { Answers, Question, AnswerResult } from "../lib/googleMaps/types";
@@ -20,6 +20,7 @@ function SingleGame() {
   const [open, setOpen] = useState(false);
   // 総出題数、奈良出題数、道出題数、それらの正解数の合計6つと、連続正解数のuseStateを作成
   const [TotalCount, setTotalCount] = useState(0);
+  const [CurrentNumber, setCurrentNumber] = useState(1); // 画面上に表示する何問目
   const [TotalCorrect, setTotalCorrect] = useState(0);
   const [NARACount, setNARACount] = useState(0);
   const [NARACorrect, setNARACorrect] = useState(0);
@@ -88,6 +89,8 @@ function SingleGame() {
     setResult(null);
     setOpen(false);
     setIsLoading(true); // ロード開始！
+
+    setCurrentNumber(TotalCount + 1); // 画面上の何問目表示を更新（TotalCountはまだ更新されていないので+1して渡す）
 
     try {
       const rand = Math.random();
@@ -245,7 +248,7 @@ function SingleGame() {
       {/* 上部の問題数とボタン */}
       <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: "20px" }}>
         <div style={{ fontSize: "2rem", fontWeight: "bold" }}>
-          現在 {TotalCount + 1} 問目
+          現在 {CurrentNumber} 問目
         </div>
         <button 
           onClick={() => setIsStatsOpen(true)}
@@ -282,7 +285,7 @@ function SingleGame() {
         {/* 再読み込みボタンと、具体的なメッセージ */}
         <div style={{ textAlign: "right", marginTop: "8px" }}>
           <span style={{ fontSize: "0.8rem", color: "#666", marginRight: "10px" }}>
-            ※20秒以上経っても景色が出ない場合は、再取得をお試しください。
+            ※10秒以上経っても景色が出ない場合は、再取得をお試しください。
           </span>
           <button 
             onClick={nextQuestion} 
@@ -310,6 +313,10 @@ function SingleGame() {
               {result.ok 
                 ? (CorrectKeep >= 2 ? `${CorrectKeep}回連続正解！` : "正解！") 
                 : "不正解…"}
+            </div>
+
+            <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#555", marginBottom: "15px" }}>
+              ({question?.prefName})
             </div>
             
             {/* マップ部分（親要素がalignItems: "center"なので自動的に中央に寄る） */}
@@ -431,6 +438,9 @@ function SingleGame() {
                 >
                   回答を終了する
                 </button>
+                <p style={{ marginTop: "10px", fontSize: "1.2rem", color: "#666" }}>
+                  ※終了時、結果に応じた称号が獲得できます
+                </p>
               </div>
             )}
           </div>

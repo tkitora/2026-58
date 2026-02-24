@@ -33,10 +33,25 @@ export function createStreetViewGame() {
     const res = await geocoder.geocode({ location: latLng });
     const first = res.results?.[0];
     if (!first) return null;
+    
+    // 州・県（administrative_area_level_1）を取得
     const pref = first.address_components.find((c) =>
       c.types.includes("administrative_area_level_1")
-    );
-    return pref?.long_name ?? null;
+    )?.long_name;
+    
+    // 国（country）を取得
+    const country = first.address_components.find((c) =>
+      c.types.includes("country")
+    )?.long_name;
+
+    if (!pref) return null;
+
+    // もし国名が取得できて、かつ「日本」じゃなければ、国名をくっつけて返す
+    if (country && country !== "日本" && country !== "Japan") {
+      return `${country} : ${pref}`;
+    }
+
+    return pref; // 日本の場合は今まで通り県名だけを返す
   }
 
   type SafePanoData = {
@@ -100,6 +115,7 @@ async function getPanoramaNear(
         }
       }
       throw new Error("奈良県内でStreet Viewが見つからなかった");
+
     }else if(mode === "DOU") {
       const bounds = await geocodeViewport("北海道, 日本");
       for (let tries = 0; tries < maxTries; tries++) {
@@ -130,29 +146,32 @@ async function getPanoramaNear(
       throw new Error("北海道内でStreet Viewが見つからなかった");
     }
 
-    // NOT_NARA
-    for (let tries = 0; tries < maxTries; tries++) {
-      const loc = randomLatLngInJapanBox();
-      try {
-        const data = await getPanoramaNear(loc, 10000);
-        const latLng = data.latLng;
-        const pref = await getPrefectureName(latLng);
+  // NOT_NARA
+      for (let tries = 0; tries < maxTries; tries++) {
+        const loc = randomLatLngInJapanBox();
+        try {
+          await sleep(100); // otherでエラーが頻発しているので、強制的に待ちを入れてみる
+          const data = await getPanoramaNear(loc, 10000);
+          const latLng = data.latLng;
+          const pref = await getPrefectureName(latLng);
 
-        if (pref && pref !== "奈良県" && pref !== "北海道") {
-          if (panorama) {
-            panorama.setPano(data.pano);
-            panorama.setVisible(true);
+          if (pref && pref !== "奈良県" && pref !== "北海道") {
+            if (panorama) {
+              panorama.setPano(data.pano);
+              panorama.setVisible(true);
+            }
+            return { panoLatLng: latLng, prefName: pref };
+          } else {
+            // 海だったり、奈良・北海道だった場合は少し待ってから次へ
+            await sleep(300);
           }
-          return { panoLatLng: latLng, prefName: pref };
+        } 
+        catch (e) {
+          await sleep(300); 
         }
-      } 
-      catch (e) {
-        await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
-        // try next
       }
+      throw new Error("奈良以外のStreet View地点が見つからなかった");
     }
-    throw new Error("奈良以外のStreet View地点が見つからなかった");
-  }
 
   /**
    * checkResult: 答え合わせ（UI非依存）
