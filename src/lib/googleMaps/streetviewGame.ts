@@ -1,6 +1,9 @@
 // src/lib/googleMaps/streetviewGame.ts
 import type { Answers, AnswerResult, Question } from "./types";
 
+// 指定したミリ秒だけ待つ関数
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export function createStreetViewGame() {
   const sv = new google.maps.StreetViewService();
   const geocoder = new google.maps.Geocoder();
@@ -79,7 +82,10 @@ async function getPanoramaNear(
             if (!bounds.contains(latLng)) continue;
 
             const pref = await getPrefectureName(latLng);
-            if (pref !== "奈良県") continue;
+            if (pref !== "奈良県") {
+              await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
+              continue;
+            }
 
             if (panorama) {
               panorama.setPano(data.pano);
@@ -88,7 +94,8 @@ async function getPanoramaNear(
 
           return { panoLatLng: latLng, prefName: pref };
         } 
-        catch {
+        catch (e) {
+          await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
           // try next
         }
       }
@@ -103,7 +110,10 @@ async function getPanoramaNear(
             if (!bounds.contains(latLng)) continue;
 
             const pref = await getPrefectureName(latLng);
-            if (pref !== "北海道") continue;
+            if (pref !== "北海道") {
+              await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
+              continue;
+            }
 
             if (panorama) {
               panorama.setPano(data.pano);
@@ -112,7 +122,8 @@ async function getPanoramaNear(
 
           return { panoLatLng: latLng, prefName: pref };
         } 
-        catch {
+        catch (e) {
+          await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
           // try next
         }
       }
@@ -135,7 +146,8 @@ async function getPanoramaNear(
           return { panoLatLng: latLng, prefName: pref };
         }
       } 
-      catch {
+      catch (e) {
+        await sleep(300); // 連続でAPI叩くとエラーになることがあるので少し待つ
         // try next
       }
     }
