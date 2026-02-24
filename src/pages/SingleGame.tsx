@@ -96,9 +96,9 @@ function SingleGame() {
       const rand = Math.random();
       let mode: "NARA" | "DOU" | "OTHER";
 
-      if (rand < 0.3) {
+      if (rand < 0.25) {
         mode = "DOU";       // 30%
-      } else if (rand < 0.8) {
+      } else if (rand < 0.75) {
         mode = "NARA";      // 50%
       } else {
         mode = "OTHER";     // 20%
