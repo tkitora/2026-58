@@ -21,8 +21,7 @@ function MainPage() {
     return(
         <>
             <div
-                className="min-h-screen flex flex-col bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: `url(${bg})` }}
+                className="min-h-screen min-w-full bg-[url('/src/assets/bg.jpg')] bg-no-repeat bg-center bg-auto md:bg-cover"
             >
                 <div className="flex justify-center relative m-5 mt-30">
                     <h1 className="text-white text-7xl font-bold drop-shadow-lg">
