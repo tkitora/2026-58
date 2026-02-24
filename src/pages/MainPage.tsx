@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import bg from "../assets/nara_bg2.jpg";
 
 function MainPage() {
     const navigate = useNavigate();
