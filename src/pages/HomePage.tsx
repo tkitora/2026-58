@@ -5,7 +5,7 @@ function HomePage() {
   const navigate = useNavigate();
 
   const handleLogoClick = () => {
-    navigate('/MainPage');
+    navigate('/mainpage');
   };
   return (
     <>

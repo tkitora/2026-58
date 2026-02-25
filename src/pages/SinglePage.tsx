@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 function Single() {
     const navigate = useNavigate();
     const handleStartClick = () => {
-        navigate('/SingleGame')
+        navigate('/singlegame')
     };
     return(
         <>
