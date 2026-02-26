@@ -201,7 +201,12 @@ function SingleGame_rank() {
             <div id="answerMap" ref={answerMapRef} style={{ width: "600px", height: "450px", borderRadius: "8px", overflow: "hidden", border: "1px solid #ccc" }} />
             
             <div style={{ marginTop: "20px", textAlign: "center", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <a href={`https://maps.google.com/maps?q=$${result.correctLatLng.lat()},${result.correctLatLng.lng()}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", padding: "10px 20px", backgroundColor: "#4285F4", color: "white", textDecoration: "none", borderRadius: "8px", fontWeight: "bold" }}>Googleマップで見る</a>
+              <a 
+                href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ display: "inline-block", padding: "10px 20px", backgroundColor: "#4285F4", color: "white", textDecoration: "none", borderRadius: "8px", fontWeight: "bold" }}
+              >Googleマップで見る</a>
               
               {/* 20問目の時だけボタンが「結果を見る」に変わる */}
               {TotalCount >= MAX_QUESTIONS ? (
