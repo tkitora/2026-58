@@ -5,6 +5,9 @@ function Single() {
     const handleStartClick = () => {
         navigate('/SingleGame')
     };
+    const handleRankingClick = () => {
+        navigate('/SingleGame_rank')
+    };
     return(
         <>
             <div>
@@ -14,6 +17,9 @@ function Single() {
             </div>
             <p onClick={handleStartClick}>
                 スタート
+            </p>
+            <p onClick={handleRankingClick}>
+                ランキングに挑戦
             </p>
         </>
     );
