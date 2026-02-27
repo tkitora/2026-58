@@ -34,16 +34,16 @@ function MainPage() {
     };
 
     const handleSingleClick = () => {
-        navigate('/Single');
+        navigate('/single');
     };
     const handleMultiClick = () => {
-        navigate('/Multi');
+        navigate('/multi');
     };
     const handleAccClick = () => {
-        navigate('/Account');
+        navigate('/account');
     };
     const handleShopClick = () => {
-        navigate('/Shop');
+        navigate('/shop');
     };
 
     return(

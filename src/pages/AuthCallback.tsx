@@ -46,5 +46,13 @@ export default function AuthCallback() {
     run();
   }, [navigate]);
 
-  return <div style={{ padding: 24 }}>Signing in...</div>;
+  return( 
+    <div style={{ padding: 24 }} className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover">
+      <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
+        <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
+          Signing in... 
+        </div>  
+      </div>
+    </div>
+  );
 }
