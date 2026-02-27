@@ -77,7 +77,7 @@ async function getPanoramaNear(
 //段階的に半径を広げて最寄りのストリートビューを探す関数
 async function getPanoramaProgressive(
   loc: google.maps.LatLng,
-  radii: number[] = [500, 2000, 10000, 50000] // 最大50kmまで探すわ
+  radii: number[] = [500, 2000, 10000, 50000] // 最大50kmまで探す
 ): Promise<{ pano: string; latLng: google.maps.LatLng }> {
   for (const radius of radii) {
     try {
@@ -89,11 +89,9 @@ async function getPanoramaProgressive(
         };
       }
     } catch (e) {
-      // この半径で見つからなければ、次の（より広い）半径へ進むだけだからエラーは無視
       await sleep(300);
     }
   }
-  // 最大半径（50km）まで広げてもダメだった場合（海のど真ん中など）はエラーを投げる
   throw new Error("指定した範囲内にストリートビューが見つかりませんでした");
 }
 
@@ -175,37 +173,6 @@ async function getPanoramaProgressive(
       throw new Error("北海道内でStreet Viewが見つからなかった");
     }
 
-// // NOT_NARA（それ以外！の時）
-//     for (let tries = 0; tries < maxTries; tries++) {
-//       // 再び、日本全体を覆う巨大な箱から完全ランダムに座標を引くわ
-//       const loc = randomLatLngInJapanBox(); 
-//       try {
-//         // お友達のロジックで、50km圏内まで段階的に探して一番近い道路に吸い寄せる！
-//         const data = await getPanoramaProgressive(loc, [1000, 5000, 20000, 50000]);
-//         const latLng = data.latLng;
-//         const pref = await getPrefectureName(latLng);
-
-//         // 奈良と北海道以外なら確定
-//         if (pref && !pref.includes("奈良県") && !pref.includes("北海道")) {
-//           if (panorama) {
-//             panorama.setPano(data.pano);
-//             panorama.setVisible(true);
-//           }
-//           return { panoLatLng: latLng, prefName: pref };
-//         } else {
-//           // 偶然、奈良や北海道に吸い寄せられた場合は少し待ってやり直し
-//           await sleep(300);
-//         }
-//       } 
-//       catch (e) {
-//         // 50km探しても見つからなかった（太平洋のど真ん中など）場合は、
-//         // 429エラーを防ぐために必ずスリープを挟んでから次のガチャを引く
-//         await sleep(300);
-//       }
-//     }
-//     throw new Error("奈良以外のStreet View地点が見つからなかった");
-//土地名ハードコードは避けたいので、残せるなら残したい、というわけでコメントアウト
-
 // NOT_NARA（それ以外！の時）
     const otherTargets = [
       "青森県, 日本", "岩手県, 日本", "宮城県, 日本", "秋田県, 日本", "山形県, 日本", "福島県, 日本",
@@ -226,7 +193,6 @@ async function getPanoramaProgressive(
       // 陸地の枠内でピンを刺す
       const loc = randomPointInBounds(bounds); 
       try {
-        // お友達のロジックで、50km圏内まで段階的に探して一番近い道路に吸い寄せる！
         const data = await getPanoramaProgressive(loc, [1000, 5000, 20000, 50000]);
         const latLng = data.latLng;
         const pref = await getPrefectureName(latLng);

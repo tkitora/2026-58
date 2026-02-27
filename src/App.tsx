@@ -1,4 +1,4 @@
-import { HomePage, MainPage, Single, SingleGame, Account, AuthCallback, Login, SingleGame_rank, SingleRank } from './index';
+import { HomePage, MainPage, Single, SingleGame, Account, AuthCallback, Login, SingleGame_rank, SingleRank, TutorialGame } from './index';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -16,6 +16,7 @@ function App() {
             <Route path='/authcallback' element={<AuthCallback />} />
             <Route path='/singlegame_rank' element={<SingleGame_rank />} />
             <Route path='/singlerank' element={<SingleRank />} />
+            <Route path='/tutorial' element={<TutorialGame />} />
           </Routes>
         </main>
       </Router>
