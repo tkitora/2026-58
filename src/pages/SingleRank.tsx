@@ -13,18 +13,6 @@ type RankData = {
 
 const ITEMS_PER_PAGE = 20; // 1ページあたりの表示件数
 
-// XSS対策：HTML特殊文字をエスケープ
-const escapeHtml = (text: string): string => {
-  const map: { [key: string]: string } = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, (char) => map[char]);
-};
-
 function SingleRank() {
   const navigate = useNavigate();
   const [rankings, setRankings] = useState<RankData[]>([]);
@@ -106,7 +94,7 @@ function SingleRank() {
                     <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#fafafa" }}>
                       {/* メダルや順位の表示をなくし、名前とスコアを少し大きくして目立たせたわ */}
                       <td style={{ padding: "15px", fontWeight: "bold", color: "#555", fontSize: "1.1rem" }}>
-                        {escapeHtml(item.player_name)}
+                        {item.player_name}
                       </td>
                       <td style={{ padding: "15px", fontWeight: "bold", color: "#e91e63", fontSize: "1.1rem" }}>
                         {item.score}問 / 20問
