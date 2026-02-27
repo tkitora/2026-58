@@ -324,7 +324,7 @@ function SingleGame() {
 
             <div style={{ marginTop: "20px", textAlign: "center", display: "flex", flexDirection: "column", gap: "10px" }}>
               <a 
-                href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`} 
+                href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ display: "inline-block", padding: "10px 20px", backgroundColor: "#4285F4", color: "white", textDecoration: "none", borderRadius: "8px", fontWeight: "bold" }}
