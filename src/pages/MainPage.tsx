@@ -51,7 +51,7 @@ function MainPage() {
         <>
             {/* relative を追加して、絶対配置の基準に */}
             <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover overflow-auto">
-                <div className="w-2/3 mx-auto mt-10 bg-white/80 backdrop-blur border-b border-gray-200 p-20">
+                <div className="w-2/3 mx-auto mt-10 bg-white/80 backdrop-blur border-b border-gray-200 p-20 relative overflow-hidden">
                     <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
                         <h1 className="text-6xl md:text-7xl font-bold text-center m-auto">
                             {"ならげっさー！".split("").map((char, i) => (
@@ -137,7 +137,9 @@ function MainPage() {
                             </div>
                         )}
                     </div>
-                    <img src={deer} className="RD animate-RD"></img>
+                    <div className="absolute bottom-0 animate-deer-move pointer-events-none select-none">
+                        <img src={deer} alt="" className="w-24 animate-deer-sway" />
+                    </div>
                 </div>
             </div>
         </>
