@@ -8,13 +8,14 @@ function Single() {
     const handleRankingClick = () => {
         navigate('/SingleGame_rank')
     };
+    const handleSingleRankClick = () => {
+        navigate('/SingleRank')
+    }
     return(
         <>
-            <div>
-                <h1>
-                    最近のランキング
-                </h1>
-            </div>
+            <p onClick={handleSingleRankClick}>
+                ランキング
+            </p>
             <p onClick={handleStartClick}>
                 スタート
             </p>

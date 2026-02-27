@@ -1,4 +1,4 @@
-import { HomePage, MainPage, Single, SingleGame, SingleGame_rank } from './index';
+import { HomePage, MainPage, Single, SingleGame, SingleGame_rank, SingleRank } from './index';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -12,6 +12,7 @@ function App() {
             <Route path='/Single' element={<Single />} />
             <Route path='/SingleGame' element={<SingleGame />} />
             <Route path='/SingleGame_rank' element={<SingleGame_rank />} />
+            <Route path='/SingleRank' element={<SingleRank />} />
           </Routes>
         </main>
       </Router>

@@ -3,6 +3,7 @@ import { loadGoogleMaps } from "../lib/googleMaps/loader";
 import { createStreetViewGame } from "../lib/googleMaps/streetviewGame";
 import type { Answers, Question, AnswerResult } from "../lib/googleMaps/types";
 import { useNavigate } from 'react-router-dom';
+import { supabase } from "../lib/supabase";
 
 type TitleData = {
   name: string;
@@ -10,7 +11,7 @@ type TitleData = {
 };
 
 // ランキング用の最大問題数を設定
-const MAX_QUESTIONS = 20;
+const MAX_QUESTIONS = 2;
 
 function SingleGame_rank() {
   const panoRef = useRef<HTMLDivElement | null>(null);
@@ -143,11 +144,25 @@ function SingleGame_rank() {
   }
 
   // DB登録用のダミー関数
+  // DB登録用の関数（非同期処理に書き換え）
   const handleRegister = async () => {
     const finalName = playerName.trim() === "" ? "名無しのゲッサー" : playerName;
-    console.log("DBへ送信するデータ:", { name: finalName, score: TotalCorrect });
-    // TODO: ここにSupabaseへデータを送信する処理を追加
-    navigate('/'); // 送信後はホーム（またはランキング一覧）へ戻る
+    
+    // Supabaseの single_ranking テーブルにデータを送信（Insert）するわ
+    const { error } = await supabase
+      .from('single_ranking')
+      .insert([
+        { player_name: finalName, score: TotalCorrect }
+      ]);
+
+    if (error) {
+      console.error("ランキングの登録に失敗しました:", error.message);
+      alert("通信エラーが発生しました。もう一度お試しください。");
+      return; // エラーの時は画面遷移させずに止める
+    }
+
+    // 成功したら、ランキング一覧ページ（今回は /rank を想定）へ飛ぶわ
+    navigate('/rank'); 
   };
 
   const btnStyle = { width: "120px", padding: "10px 0", borderRadius: "8px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", cursor: "pointer", fontSize: "1rem", fontWeight: "bold", textAlign: "center" as const };
