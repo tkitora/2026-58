@@ -20,9 +20,9 @@ function MainPage() {
     return(
         <>
             <div
-                className="min-h-screen min-w-full bg-[url('/src/assets/bg.jpg')] bg-no-repeat bg-center bg-auto md:bg-cover"
+                className="min-h-screen min-w-full bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover"
             >
-                <div className="flex justify-center relative m-5 mt-30">
+                <div className="flex justify-center relative p-5">
                     <h1 className="text-white text-7xl font-bold drop-shadow-lg">
                     ならげっさー！
                     </h1>
