@@ -11,7 +11,7 @@ type TitleData = {
 };
 
 // ランキング用の最大問題数を設定
-const MAX_QUESTIONS = 2;
+const MAX_QUESTIONS = 20;
 
 function SingleGame_rank() {
   const panoRef = useRef<HTMLDivElement | null>(null);
@@ -148,7 +148,6 @@ function SingleGame_rank() {
   const handleRegister = async () => {
     const finalName = playerName.trim() === "" ? "名無しのゲッサー" : playerName;
     
-    // Supabaseの single_ranking テーブルにデータを送信（Insert）するわ
     const { error } = await supabase
       .from('single_ranking')
       .insert([
@@ -161,8 +160,7 @@ function SingleGame_rank() {
       return; // エラーの時は画面遷移させずに止める
     }
 
-    // 成功したら、ランキング一覧ページ（今回は /rank を想定）へ飛ぶわ
-    navigate('/rank'); 
+    navigate('SingleRank'); 
   };
 
   const btnStyle = { width: "120px", padding: "10px 0", borderRadius: "8px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", cursor: "pointer", fontSize: "1rem", fontWeight: "bold", textAlign: "center" as const };
