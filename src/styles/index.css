@@ -9,9 +9,6 @@
   .animate-wave {
     animation: wave 1.4s ease-in-out infinite;
   }
-}
-
-@layer utilities {
   /* 左外 → 右外（親コンテナ幅基準） */
   @keyframes deerMove {
     0%   { left: 100%; }
@@ -31,4 +28,13 @@
     transform-origin: 50% 100%;
     animation: deerSway 1.2s ease-in-out infinite;
   }
+  @keyframes logoSway {
+    0%, 100% { transform: rotate(-5deg); }
+    50%      { transform: rotate(5deg); }
+    }
+
+    .animate-logo-sway {
+        transform-origin: 50% 50%;
+        animation: logoSway 3s ease-in-out infinite;
+    }
 }

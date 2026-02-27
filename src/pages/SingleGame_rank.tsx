@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/googleMaps/loader";
 import { createStreetViewGame } from "../lib/googleMaps/streetviewGame";
 import type { Answers, Question, AnswerResult } from "../lib/googleMaps/types";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 type TitleData = {
@@ -10,7 +10,7 @@ type TitleData = {
   description: string;
 };
 
-// ランキング用の最大問題数を設定
+// ランキング用の最大問題数
 const MAX_QUESTIONS = 20;
 
 function SingleGame_rank() {
@@ -20,7 +20,7 @@ function SingleGame_rank() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [result, setResult] = useState<AnswerResult | null>(null);
   const [open, setOpen] = useState(false);
-  
+
   const [TotalCount, setTotalCount] = useState(0);
   const [CurrentNumber, setCurrentNumber] = useState(1);
   const [TotalCorrect, setTotalCorrect] = useState(0);
@@ -33,13 +33,13 @@ function SingleGame_rank() {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // ランキング特有のState
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false); // リタイア確認用
-  const [showResultScreen, setShowResultScreen] = useState(false); // 最終リザルト画面用
-  const [playerName, setPlayerName] = useState(""); // プレイヤー名入力用
+  // ランキング特有
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false); // リタイア確認
+  const [showResultScreen, setShowResultScreen] = useState(false); // 最終リザルト
+  const [playerName, setPlayerName] = useState("");
 
-  const [isRegisterConfirmOpen, setIsRegisterConfirmOpen] = useState(false); // 登録確認用
-  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);   // 破棄（登録しない）確認用
+  const [isRegisterConfirmOpen, setIsRegisterConfirmOpen] = useState(false);
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
 
   const navigate = useNavigate();
 
@@ -49,7 +49,10 @@ function SingleGame_rank() {
 
   useEffect(() => {
     if (!open || !result || !gameRef.current || !answerMapRef.current) return;
+
+    // 前回の地図が残る/二重生成を防ぐ
     answerMapRef.current.innerHTML = "";
+
     requestAnimationFrame(() => {
       mapRef.current = gameRef.current!.renderAnswerMap(answerMapRef.current!, result);
     });
@@ -59,6 +62,7 @@ function SingleGame_rank() {
     (async () => {
       await loadGoogleMaps();
       gameRef.current = createStreetViewGame();
+
       if (!panoRef.current) return;
       panoramaRef.current = new google.maps.StreetViewPanorama(panoRef.current, {
         addressControl: false,
@@ -70,6 +74,7 @@ function SingleGame_rank() {
         linksControl: false,
         clickToGo: false,
       });
+
       await nextQuestion();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,12 +82,13 @@ function SingleGame_rank() {
 
   async function nextQuestion() {
     if (!gameRef.current || !panoramaRef.current) return;
+
     setResult(null);
     setOpen(false);
     setIsLoading(true);
 
     // CurrentNumberがMAXを超えないように制御
-    setCurrentNumber(Math.min(TotalCount + 1, MAX_QUESTIONS)); 
+    setCurrentNumber(Math.min(TotalCount + 1, MAX_QUESTIONS));
 
     try {
       const rand = Math.random();
@@ -90,7 +96,7 @@ function SingleGame_rank() {
       if (rand < 0.3) mode = "DOU";
       else if (rand < 0.8) mode = "NARA";
       else mode = "OTHER";
-      
+
       const q = await gameRef.current.newView({ mode, panorama: panoramaRef.current });
       setQuestion(q);
     } catch (error) {
@@ -100,189 +106,245 @@ function SingleGame_rank() {
     }
   }
 
-  function submit(userSaysNara: Answers) {
+  function submit(userSays: Answers) {
     if (!gameRef.current || !question) return;
-    const r = gameRef.current.checkResult(question, userSaysNara);
+    const r = gameRef.current.checkResult(question, userSays);
     setResult(r);
-    
-    setTotalCount(prev => prev + 1);
+
+    setTotalCount((prev) => prev + 1);
+
     if (r.ok) {
-      setTotalCorrect(prev => prev + 1);
-      setCorrectKeep(prev => prev + 1);
+      setTotalCorrect((prev) => prev + 1);
+      setCorrectKeep((prev) => prev + 1);
       if (CorrectKeep + 1 > MaxCorrectKeep) setMaxCorrectKeep(CorrectKeep + 1);
-      if (question.prefName === "奈良県") setNARACorrect(prev => prev + 1);
-      else if (question.prefName === "北海道") setDOUCorrect(prev => prev + 1);
+
+      if (question.prefName === "奈良県") setNARACorrect((prev) => prev + 1);
+      else if (question.prefName === "北海道") setDOUCorrect((prev) => prev + 1);
     } else {
       setCorrectKeep(0);
     }
-    
-    if (question.prefName === "奈良県") setNARACount(prev => prev + 1);
-    else if (question.prefName === "北海道") setDOUCount(prev => prev + 1);
-    
+
+    if (question.prefName === "奈良県") setNARACount((prev) => prev + 1);
+    else if (question.prefName === "北海道") setDOUCount((prev) => prev + 1);
+
     setOpen(true);
   }
 
   function getTitles(): TitleData[] {
     const earnedTitles: TitleData[] = [];
-    if (TotalCount === 0) return [{ name: "準備中の旅人", description: "まだ1問も答えていない。まずは遊んでみて！" }];
+    if (TotalCount === 0)
+      return [{ name: "準備中の旅人", description: "まだ1問も答えていない。まずは遊んでみて！" }];
 
     const totalRate = TotalCorrect / TotalCount;
     const naraRate = NARACount > 0 ? NARACorrect / NARACount : 0;
     const douRate = DOUCount > 0 ? DOUCorrect / DOUCount : 0;
 
     if (douRate === 1 && DOUCount > 0) earnedTitles.push({ name: "道民", description: "北海道の問題を全問正解。" });
-    if (DOUCount > 0 && NARACount > 0 && douRate > naraRate) earnedTitles.push({ name: "生粋の道民", description: "奈良よりも北海道の正答率が高い。" });
+    if (DOUCount > 0 && NARACount > 0 && douRate > naraRate)
+      earnedTitles.push({ name: "生粋の道民", description: "奈良よりも北海道の正答率が高い。" });
     if (naraRate === 1 && NARACount > 0) earnedTitles.push({ name: "奈良県民", description: "奈良県の問題を全問正解。" });
-    if (NARACount >= 5 && naraRate === 1) earnedTitles.push({ name: "生粋の奈良県民", description: "奈良の問題に5問以上回答し、全問正解。鹿と山はトモダチ。" });
-    if (TotalCount >= 20 && totalRate >= 0.9) earnedTitles.push({ name: "マスター旅人", description: "全体の正答率90%以上。地理マスター。" });
-    if (TotalCount >= 20 && totalRate >= 0.8) earnedTitles.push({ name: "凄腕の旅人", description: "全体の正答率80%以上。地理に詳しい。" });
-    if (MaxCorrectKeep >= 10) earnedTitles.push({ name: "ゾーン突入", description: "10問以上連続で正解した。今のあなたには全てが見えている。" });
-    if (earnedTitles.length === 0 && totalRate < 0.5) earnedTitles.push({ name: "迷子の旅人", description: "正答率が50%未満。少し方向音痴かも…？" });
-    if (earnedTitles.length === 0) earnedTitles.push({ name: "駆け出しゲッサー", description: "正答率50%以上の標準的な旅人。これからもっと伸びるはず！" });
+    if (NARACount >= 5 && naraRate === 1)
+      earnedTitles.push({ name: "生粋の奈良県民", description: "奈良の問題に5問以上回答し、全問正解。鹿と山はトモダチ。" });
+    if (TotalCount >= 20 && totalRate >= 0.9)
+      earnedTitles.push({ name: "マスター旅人", description: "全体の正答率90%以上。地理マスター。" });
+    if (TotalCount >= 20 && totalRate >= 0.8)
+      earnedTitles.push({ name: "凄腕の旅人", description: "全体の正答率80%以上。地理に詳しい。" });
+    if (MaxCorrectKeep >= 10)
+      earnedTitles.push({ name: "ゾーン突入", description: "10問以上連続で正解した。今のあなたには全てが見えている。" });
+    if (earnedTitles.length === 0 && totalRate < 0.5)
+      earnedTitles.push({ name: "迷子の旅人", description: "正答率が50%未満。少し方向音痴かも…？" });
+    if (earnedTitles.length === 0)
+      earnedTitles.push({ name: "駆け出しゲッサー", description: "正答率50%以上の標準的な旅人。これからもっと伸びるはず！" });
 
     return earnedTitles;
   }
 
-  // DB登録用のダミー関数
-  // DB登録用の関数（非同期処理に書き換え）
   const handleRegister = async () => {
-    const finalName = playerName.trim() === "" ? "名無しのゲッサー" : playerName;
-    
-    const { error } = await supabase
-      .from('single_ranking')
-      .insert([
-        { player_name: finalName, score: TotalCorrect }
-      ]);
+    const finalName = playerName.trim() === "" ? "名無しのゲッサー" : playerName.trim();
+
+    const { error } = await supabase.from("single_ranking").insert([{ player_name: finalName, score: TotalCorrect }]);
 
     if (error) {
       console.error("ランキングの登録に失敗しました:", error.message);
       alert("通信エラーが発生しました。もう一度お試しください。");
-      return; // エラーの時は画面遷移させずに止める
+      return;
     }
 
-    navigate('/singlerank'); 
+    navigate("/singlerank");
   };
 
-  const btnStyle = { width: "120px", padding: "10px 0", borderRadius: "8px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", cursor: "pointer", fontSize: "1rem", fontWeight: "bold", textAlign: "center" as const };
+  // 共通クラス
+  const smallBtn =
+    "px-2 py-1 text-xs rounded border border-gray-400 bg-white font-bold transition hover:bg-gray-100 active:scale-95";
+  const choiceBtnBase =
+    "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition hover:bg-gray-100 active:scale-95";
+  const disabledBtn = "opacity-50 cursor-not-allowed";
+  const modalWrap = "fixed inset-0 flex justify-center items-center";
+  const cardBase = "bg-white rounded-xl";
 
   return (
-    <div style={{ maxWidth: "1500px", margin: "0 auto", padding: "20px" }}>
-      
-      <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: "20px" }}>
-        <div style={{ fontSize: "2rem", fontWeight: "bold" }}>
-          現在 {CurrentNumber} / {MAX_QUESTIONS} 問目
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
+      <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl mx-auto">
+        {/* 上部：問題数 + リタイア */}
+        <div className="relative flex justify-center items-center mb-5">
+          <div className="text-3xl font-bold">
+            現在 {CurrentNumber} / {MAX_QUESTIONS} 問目
+          </div>
+
+          <button
+            onClick={() => setIsConfirmOpen(true)}
+            className="absolute right-0 px-5 py-2 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-600 active:scale-95 transition"
+          >
+            リタイア
+          </button>
         </div>
-        {/* リタイアボタン */}
-        <button 
-          onClick={() => setIsConfirmOpen(true)}
-          style={{ padding: "10px 20px", borderRadius: "8px", border: "none", backgroundColor: "#ff5252", color: "white", cursor: "pointer", fontSize: "0.9rem", fontWeight: "bold", position: "absolute", right: 0 }}
-        >
-          リタイア
-        </button>
+
+        {/* ストリートビュー */}
+        <div className="w-full mx-auto">
+          <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300 bg-white">
+            <div ref={panoRef} className="w-full h-full" />
+
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white">
+                <div className="text-2xl font-bold mb-2">景色を探しています...</div>
+              </div>
+            )}
+          </div>
+
+          {/* 再取得 */}
+          <div className="flex justify-end items-center gap-3 mt-2">
+            <span className="text-xs text-gray-600">
+              ※10秒以上経っても景色が出ない場合は、再取得をお試しください。
+            </span>
+            <button
+              onClick={nextQuestion}
+              disabled={isLoading}
+              className={[smallBtn, isLoading ? "opacity-50 cursor-not-allowed" : ""].join(" ")}
+            >
+              ↻ 景色を再取得する
+            </button>
+          </div>
+
+          {/* 回答ボタン */}
+          <div className="flex justify-center items-center gap-5 mt-4 min-h-[50px]">
+            <button
+              onClick={() => submit("奈良県")}
+              disabled={open}
+              className={[choiceBtnBase, open ? disabledBtn : ""].join(" ")}
+            >
+              なら！
+            </button>
+            <button
+              onClick={() => submit("北海道")}
+              disabled={open}
+              className={[choiceBtnBase, open ? disabledBtn : ""].join(" ")}
+            >
+              どう！
+            </button>
+            <button
+              onClick={() => submit("OTHER")}
+              disabled={open}
+              className={[choiceBtnBase, open ? disabledBtn : ""].join(" ")}
+            >
+              それ以外！
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div id="mainDiv" style={{ width: "100%", margin: "0 auto" }}>
-        <div style={{ position: "relative", width: "100%", height: "500px", borderRadius: "8px", overflow: "hidden", border: "1px solid #ddd" }}>
-          <div id="pano" ref={panoRef} style={{ width: "100%", height: "100%" }} />
-          {isLoading && (
-            <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0, 0, 0, 0.7)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", zIndex: 10, color: "white" }}>
-              <div style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "10px" }}>景色を探しています...</div>
-            </div>
-          )}
-        </div>
-        
-        <div style={{ textAlign: "right", marginTop: "8px" }}>
-          <span style={{ fontSize: "0.8rem", color: "#666", marginRight: "10px" }}>※10秒以上経っても景色が出ない場合は、再取得をお試しください。</span>
-          <button onClick={nextQuestion} disabled={isLoading} style={{ padding: "4px 8px", fontSize: "0.8rem", borderRadius: "4px", border: "1px solid #aaa", backgroundColor: isLoading ? "#eee" : "#fff", cursor: isLoading ? "not-allowed" : "pointer" }}>↻ 景色を再取得する</button>
-        </div>
-        
-        <div id="BtnDiv" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginTop: "10px", minHeight: "50px" }}>
-          <button onClick={() => submit("奈良県")} style={btnStyle} disabled={open}>なら！</button>
-          <button onClick={() => submit("北海道")} style={btnStyle} disabled={open}>どう！</button>
-          <button onClick={() => submit("OTHER")} style={btnStyle} disabled={open}>それ以外！</button>
-        </div>
-      </div>
-
-      {/* 答え合わせダイアログ */}
+      {/* ========== 答え合わせダイアログ ========== */}
       {open && result && !showResultScreen && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-          <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "15px", color: result.ok ? "#e91e63" : "#3f51b5" }}>
+        <div className={`${modalWrap} bg-black/50 z-[1000]`}>
+          <div className={`${cardBase} p-6 flex flex-col items-center w-[95%] max-w-3xl`}>
+            <div className={["text-2xl font-bold mb-4", result.ok ? "text-pink-600" : "text-indigo-600"].join(" ")}>
               {result.ok ? (CorrectKeep >= 2 ? `${CorrectKeep}回連続正解！` : "正解！") : "不正解…"}
             </div>
-            <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#555", marginBottom: "15px" }}>({question?.prefName})</div>
-            <div id="answerMap" ref={answerMapRef} style={{ width: "600px", height: "450px", borderRadius: "8px", overflow: "hidden", border: "1px solid #ccc" }} />
-            
-            <div style={{ marginTop: "20px", textAlign: "center", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <a 
+
+            <div className="text-lg font-bold text-gray-700 mb-4">({question?.prefName})</div>
+
+            <div ref={answerMapRef} className="w-full max-w-[600px] h-[450px] rounded-lg overflow-hidden border border-gray-300" />
+
+            <div className="mt-5 w-full flex flex-col items-center gap-3">
+              <a
                 href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
-                target="_blank" 
+                target="_blank"
                 rel="noopener noreferrer"
-                style={{ display: "inline-block", padding: "10px 20px", backgroundColor: "#4285F4", color: "white", textDecoration: "none", borderRadius: "8px", fontWeight: "bold" }}
-              >Googleマップで見る</a>
-              
-              {/* 20問目の時だけボタンが「結果を見る」に変わる */}
+                className="inline-block px-5 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 active:scale-95 transition"
+              >
+                Googleマップで見る
+              </a>
+
               {TotalCount >= MAX_QUESTIONS ? (
-                <button 
-                  onClick={() => { setOpen(false); setShowResultScreen(true); }} 
-                  style={{ ...btnStyle, width: "auto", backgroundColor: "#ffb300", color: "white", border: "none" }}
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setShowResultScreen(true);
+                  }}
+                  className="px-6 py-2 rounded-lg font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition"
                 >
                   結果を見る
                 </button>
               ) : (
-                <button onClick={nextQuestion} style={{ ...btnStyle, width: "auto" }}>次の問題へ</button>
+                <button
+                  onClick={nextQuestion}
+                  className="px-6 py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold hover:bg-gray-100 active:scale-95 transition"
+                >
+                  次の問題へ
+                </button>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 最終リザルト＆登録画面 */}
+      {/* ========== 最終リザルト＆登録画面 ========== */}
       {showResultScreen && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-          <div style={{ backgroundColor: "white", padding: "40px", borderRadius: "12px", width: "500px", textAlign: "center", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
-            <h2 style={{ fontSize: "2rem", marginBottom: "10px", color: "#333" }}>最終結果</h2>
-            <div style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#e91e63", marginBottom: "20px" }}>
+        <div className={`${modalWrap} bg-black/70 z-[1000]`}>
+          <div className={`${cardBase} p-10 w-[95%] max-w-lg text-center shadow-[0_4px_15px_rgba(0,0,0,0.2)]`}>
+            <h2 className="text-3xl font-bold mb-2 text-gray-800">最終結果</h2>
+
+            <div className="text-2xl font-bold text-pink-600 mb-6">
               {TotalCorrect} / {MAX_QUESTIONS} 問正解！
             </div>
 
-            {/* 称号表示エリア */}
-            <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#fff8e1", borderRadius: "8px", border: "2px solid #ffca28", textAlign: "left" }}>
-              <h3 style={{ margin: "0 0 10px 0", fontSize: "1.1rem", textAlign: "center" }}>獲得した称号</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* 称号 */}
+            <div className="my-5 p-5 bg-amber-50 rounded-lg border-2 border-amber-300 text-left">
+              <h3 className="text-lg font-bold text-center mb-4">獲得した称号</h3>
+
+              <div className="flex flex-col gap-3">
                 {getTitles().map((title, index) => (
-                  <details key={index} style={{ backgroundColor: "white", padding: "8px", borderRadius: "6px", border: "1px solid #ffd54f", cursor: "pointer" }}>
-                    <summary style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#d84315", outline: "none" }}>🏆 {title.name}</summary>
-                    <p style={{ margin: "8px 0 0 0", fontSize: "0.9rem", color: "#555", paddingLeft: "25px" }}>{title.description}</p>
+                  <details key={index} className="bg-white p-3 rounded-md border border-amber-300 cursor-pointer">
+                    <summary className="text-lg font-bold text-orange-700 outline-none">🏆 {title.name}</summary>
+                    <p className="mt-2 text-sm text-gray-700 pl-6">{title.description}</p>
                   </details>
                 ))}
               </div>
             </div>
 
-            {/* 名前入力フォーム */}
-            <div style={{ margin: "30px 0" }}>
-              <p style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "10px" }}>あなたの名前を入力してください！</p>
-              <input 
-                type="text" 
-                placeholder="名無しのゲッサー" 
+            {/* 名前入力 */}
+            <div className="my-8">
+              <p className="text-lg font-bold mb-3">あなたの名前を入力してください！</p>
+              <input
+                type="text"
+                placeholder="名無しのゲッサー"
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 maxLength={15}
-                style={{ width: "80%", padding: "12px", fontSize: "1.2rem", borderRadius: "6px", border: "2px solid #ccc", textAlign: "center" }}
+                className="w-4/5 px-3 py-3 text-xl rounded-md border-2 border-gray-300 text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
             </div>
 
-            {/* 送信ボタン類 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "15px", alignItems: "center" }}>
-              <button 
-                onClick={() => setIsRegisterConfirmOpen(true)} 
-                style={{ ...btnStyle, width: "80%", backgroundColor: "#4caf50", color: "white", border: "none", fontSize: "1.2rem", padding: "15px 0" }}
+            {/* ボタン */}
+            <div className="flex flex-col gap-4 items-center">
+              <button
+                onClick={() => setIsRegisterConfirmOpen(true)}
+                className="w-4/5 py-4 rounded-lg font-bold text-white bg-green-600 hover:bg-green-700 active:scale-95 transition text-xl"
               >
                 登録して終了
               </button>
-              <button 
-                onClick={() => setIsDiscardConfirmOpen(true)} 
-                style={{ ...btnStyle, width: "80%", backgroundColor: "#e0e0e0", color: "#333", border: "none" }}
+              <button
+                onClick={() => setIsDiscardConfirmOpen(true)}
+                className="w-4/5 py-3 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
               >
                 登録せずに終了
               </button>
@@ -291,36 +353,57 @@ function SingleGame_rank() {
         </div>
       )}
 
-      {/* 終了確認ダイアログ */}
+      {/* ========== リタイア確認ダイアログ ========== */}
       {isConfirmOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1001 }}>
-          <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "12px", textAlign: "center", width: "350px", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
-            <p style={{ fontSize: "1.3rem", fontWeight: "bold", marginBottom: "25px" }}>本当に終了してホームに戻りますか？<br/><span style={{fontSize:"0.9rem", color:"#666"}}>（ここまでの記録は保存されません）</span></p>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "15px" }}>
-              <button onClick={() => navigate('/')} style={{ ...btnStyle, flex: 1, backgroundColor: "#ff5252", color: "white", border: "none" }}>はい</button>
-              <button onClick={() => setIsConfirmOpen(false)} style={{ ...btnStyle, flex: 1, backgroundColor: "#e0e0e0", color: "#333", border: "none" }}>いいえ</button>
+        <div className={`${modalWrap} bg-black/70 z-[1001]`}>
+          <div className={`${cardBase} p-8 w-[95%] max-w-sm text-center shadow-[0_4px_15px_rgba(0,0,0,0.3)]`}>
+            <p className="text-xl font-bold mb-5">
+              本当に終了してホームに戻りますか？
+              <br />
+              <span className="text-sm text-gray-600">（ここまでの記録は保存されません）</span>
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="flex-1 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition"
+              >
+                はい
+              </button>
+              <button
+                onClick={() => setIsConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
+              >
+                いいえ
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 登録確認ダイアログ */}
+      {/* ========== 登録確認ダイアログ ========== */}
       {isRegisterConfirmOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1002 }}>
-          <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "12px", textAlign: "center", width: "400px", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
-            <p style={{ fontSize: "1.3rem", fontWeight: "bold", marginBottom: "25px", lineHeight: "1.5" }}>
-              『{playerName.trim() === "" ? "名無しのゲッサー" : playerName}』で登録します。<br/>間違いありませんか？
+        <div className={`${modalWrap} bg-black/80 z-[1002]`}>
+          <div className={`${cardBase} p-8 w-[95%] max-w-md text-center shadow-[0_4px_15px_rgba(0,0,0,0.3)]`}>
+            <p className="text-xl font-bold mb-6 leading-relaxed">
+              『{playerName.trim() === "" ? "名無しのゲッサー" : playerName.trim()}』で登録します。
+              <br />
+              間違いありませんか？
             </p>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "15px" }}>
-              <button 
-                onClick={() => { setIsRegisterConfirmOpen(false); handleRegister(); }} 
-                style={{ ...btnStyle, flex: 1, backgroundColor: "#4caf50", color: "white", border: "none" }}
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsRegisterConfirmOpen(false);
+                  handleRegister();
+                }}
+                className="flex-1 py-2 rounded-lg font-bold text-white bg-green-600 hover:bg-green-700 active:scale-95 transition"
               >
                 はい
               </button>
-              <button 
-                onClick={() => setIsRegisterConfirmOpen(false)} 
-                style={{ ...btnStyle, flex: 1, backgroundColor: "#e0e0e0", color: "#333", border: "none" }}
+              <button
+                onClick={() => setIsRegisterConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
               >
                 いいえ
               </button>
@@ -329,23 +412,26 @@ function SingleGame_rank() {
         </div>
       )}
 
-      {/* 登録せずに終了（破棄）確認ダイアログ */}
+      {/* ========== 登録せず終了確認ダイアログ ========== */}
       {isDiscardConfirmOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(0,0,0,0.8)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1002 }}>
-          <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "12px", textAlign: "center", width: "400px", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
-            <p style={{ fontSize: "1.2rem", fontWeight: "bold", marginBottom: "25px", lineHeight: "1.5" }}>
-              今回のプレイ記録は保存されませんが、<br/>問題ありませんか？
+        <div className={`${modalWrap} bg-black/80 z-[1002]`}>
+          <div className={`${cardBase} p-8 w-[95%] max-w-md text-center shadow-[0_4px_15px_rgba(0,0,0,0.3)]`}>
+            <p className="text-lg font-bold mb-6 leading-relaxed">
+              今回のプレイ記録は保存されませんが、
+              <br />
+              問題ありませんか？
             </p>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "15px" }}>
-              <button 
-                onClick={() => navigate('/')} 
-                style={{ ...btnStyle, flex: 1, backgroundColor: "#ff5252", color: "white", border: "none" }}
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => navigate("/")}
+                className="flex-1 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition"
               >
                 はい
               </button>
-              <button 
-                onClick={() => setIsDiscardConfirmOpen(false)} 
-                style={{ ...btnStyle, flex: 1, backgroundColor: "#e0e0e0", color: "#333", border: "none" }}
+              <button
+                onClick={() => setIsDiscardConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
               >
                 いいえ
               </button>
@@ -353,8 +439,7 @@ function SingleGame_rank() {
           </div>
         </div>
       )}
-      
-    </div> 
+    </div>
   );
 }
 
