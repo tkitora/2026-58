@@ -160,7 +160,7 @@ function SingleGame_rank() {
       return; // エラーの時は画面遷移させずに止める
     }
 
-    navigate('SingleRank'); 
+    navigate('/singlerank'); 
   };
 
   const btnStyle = { width: "120px", padding: "10px 0", borderRadius: "8px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", cursor: "pointer", fontSize: "1rem", fontWeight: "bold", textAlign: "center" as const };
