@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase-oauth/supabase";
 import type { Session } from "@supabase/supabase-js";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Header } from "../index"; 
 
 function Account() {
@@ -17,7 +17,6 @@ function Account() {
   const [loadingName, setLoadingName] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const navigate = useNavigate();
 
   // セッション取得 + 監視
   useEffect(() => {
@@ -123,19 +122,24 @@ function Account() {
   const logout = async () => {
     await supabase.auth.signOut();
   };
+  
 
   return (
     <div style={{ padding: 24 }} className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover">
+      <Header backTo="/mainpage"></Header>
       {!session ? (
-        <p>
-          未ログインです。<Link to="/login">ログインへ</Link>
-        </p>
+        <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
+          <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
+            <p className="text-xl ">
+              未ログインです
+            </p>
+            <Link to="/login" className="rounded-xl px-3 py-2 text-xl font-medium text-gray-700 hover:bg-gray-100 active:scale-75 hover:shadow-sm transition">
+              ログインへ
+            </Link>
+          </div>
+        </div>
       ) : (
         <>
-          <div className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b border-gray-200 ">
-            <Header></Header>
-          </div>
-
           <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
             <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
               <div className="relative flex flex-col gap-3">
