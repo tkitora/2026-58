@@ -1,4 +1,4 @@
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/googleMaps/loader";
 import { createStreetViewGame } from "../lib/googleMaps/streetviewGame";
 import type { Answers, Question, AnswerResult } from "../lib/googleMaps/types";

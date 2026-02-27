@@ -15,7 +15,7 @@ const Header: React.FC<HeaderProps> = ({ backTo }) => {
         }
     };
     return (
-        <div className="sticky top-0 z-10 w-full bg-white/80 backdrop-blur border-b border-gray-200 ">
+        <div className="sticky top-0 z-10 w-2/3 mx-auto bg-white/80 backdrop-blur border-b border-gray-200 ">
             <div className="mx-auto max-w-5xl px-6 py-4">
                 <button
                 className="rounded-xl px-3 py-2 text-2xl font-medium text-gray-700 hover:bg-gray-100 active:scale-75 hover:shadow-sm transition"
