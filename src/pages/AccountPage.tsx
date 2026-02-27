@@ -14,6 +14,9 @@ function Account() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  
+  
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
@@ -29,6 +32,9 @@ function Account() {
       ) : (
         <>
           <p>ログイン中: {session.user.email}</p>
+          <p>ID: {session.user.id}</p>
+          <p>名前: {session.user.user_metadata?.full_name}</p>
+          <img src={session.user.user_metadata?.avatar_url}></img>
           <button onClick={logout}>ログアウト</button>
         </>
       )}

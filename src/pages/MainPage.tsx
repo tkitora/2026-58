@@ -4,16 +4,16 @@ function MainPage() {
     const navigate = useNavigate();
 
     const handleSingleClick = () => {
-        navigate('/single');
+        navigate('/Single');
     };
     const handleMultiClick = () => {
-        navigate('/multi');
+        navigate('/Multi');
     };
     const handleAccClick = () => {
-        navigate('/account');
+        navigate('/Account');
     };
     const handleShopClick = () => {
-        navigate('/shop');
+        navigate('/Shop');
     };
 
 
@@ -22,7 +22,7 @@ function MainPage() {
             <div
                 className="min-h-screen min-w-full bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover"
             >
-                <div className="flex justify-center relative p-20">
+                <div className="flex justify-center relative p-5">
                     <h1 className="text-white text-7xl font-bold drop-shadow-lg">
                     ならげっさー！
                     </h1>

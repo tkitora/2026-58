@@ -7,34 +7,43 @@ export default function AuthCallback() {
   const ran = useRef(false);
 
   useEffect(() => {
-    if (ran.current) return; // StrictModeの2回実行対策
+    if (ran.current) return;
     ran.current = true;
 
-    (async () => {
-      const url = window.location.href;
+    const run = async () => {
+      try {
+        const url = window.location.href;
 
-      // ✅ PKCE（?code=...）のときだけ交換する
-      if (url.includes("?code=")) {
-        const { error } = await supabase.auth.exchangeCodeForSession(url);
-        if (error) {
-          console.error("exchangeCodeForSession error:", error);
+        // 1) PKCE（?code=...）ならセッション交換
+        if (url.includes("?code=")) {
+          const { error } = await supabase.auth.exchangeCodeForSession(url);
+          if (error) throw error;
+        }
+
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+
+        const user = data.user;
+        if (!user) {
           navigate("/login", { replace: true });
           return;
         }
-        navigate("/", { replace: true });
-        return;
-      }
 
-      // ✅ #access_token=...（Implicit）なら交換しない。セッションが入ってるか確認する
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.error("getSession error:", error);
+        const { error: upsertError } = await supabase.from("profiles").upsert({
+          id: user.id,
+          name: "名無しのゲッサ―"
+        });
 
-      if (data.session) {
-        navigate("/mainpage", { replace: true });
-      } else {
+        if (upsertError) throw upsertError;
+
+        navigate("/account", { replace: true });
+      } catch (e) {
+        console.error("AuthCallback error:", e);
         navigate("/login", { replace: true });
       }
-    })();
+    };
+
+    run();
   }, [navigate]);
 
   return <div style={{ padding: 24 }}>Signing in...</div>;
