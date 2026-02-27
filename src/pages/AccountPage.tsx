@@ -128,7 +128,7 @@ function Account() {
     <div style={{ padding: 24 }} className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover">
       <Header backTo="/mainpage"></Header>
       {!session ? (
-        <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
+        <div className="w-2/3 mx-auto bg-white/80 backdrop-blur border-b border-gray-200 p-20">
           <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
             <p className="text-xl ">
               未ログインです
@@ -140,7 +140,7 @@ function Account() {
         </div>
       ) : (
         <>
-          <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
+          <div className="w-2/3 mx-auto bg-white/80 backdrop-blur border-b border-gray-200 p-20">
             <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
               <div className="relative flex flex-col gap-3">
                 <img
