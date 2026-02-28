@@ -48,6 +48,32 @@ function SingleGame_rank() {
   const mapRef = useRef<google.maps.Map | null>(null);
 
   useEffect(() => {
+    // 最終結果画面が出たタイミングで、ログイン済みなら profiles.name を入力欄へ
+    const fillNameFromProfile = async () => {
+      if (!showResultScreen) return;
+
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user?.id) return;
+
+      const { data: profile, error: profErr } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      if (profErr) {
+        console.warn("fetch profile name error:", profErr.message);
+        return;
+      }
+
+      const n = (profile?.name ?? "").trim();
+      if (n) setPlayerName(n);
+    };
+
+    fillNameFromProfile();
+  }, [showResultScreen]);
+
+  useEffect(() => {
     if (!open || !result || !gameRef.current || !answerMapRef.current) return;
 
     // 前回の地図が残る/二重生成を防ぐ
@@ -162,7 +188,19 @@ function SingleGame_rank() {
   const handleRegister = async () => {
     const finalName = playerName.trim() === "" ? "名無しのゲッサー" : playerName.trim();
 
-    const { error } = await supabase.from("single_ranking").insert([{ player_name: finalName, score: TotalCorrect }]);
+    // ★ログインしていれば user_id を入れる（未ログインなら null）
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr) console.warn("getUser error:", userErr.message);
+
+    const uid = userData.user?.id ?? null;
+
+    const { error } = await supabase.from("single_ranking").insert([
+      {
+        player_name: finalName,
+        score: TotalCorrect,
+        user_id: uid, // ★追加
+      },
+    ]);
 
     if (error) {
       console.error("ランキングの登録に失敗しました:", error.message);
@@ -206,7 +244,16 @@ function SingleGame_rank() {
 
             {isLoading && (
               <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white">
-                <div className="text-2xl font-bold mb-2">景色を探しています...</div>
+                <div className="text-2xl font-bold mb-2 ">
+                  {"景色を探しています...".split("").map((char, i) => (
+                    <span
+                      key={i}
+                      className="inline-block animate-wave"
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    >
+                      {char}
+                    </span>
+                  ))}</div>
               </div>
             )}
           </div>
