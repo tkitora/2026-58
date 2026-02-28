@@ -139,16 +139,16 @@ function SingleGame_rank() {
     const naraRate = NARACount > 0 ? NARACorrect / NARACount : 0;
     const douRate = DOUCount > 0 ? DOUCorrect / DOUCount : 0;
 
-    if (douRate === 1 && DOUCount > 0) earnedTitles.push({ name: "道民", description: "北海道の問題を全問正解。" });
-    if (DOUCount > 0 && NARACount > 0 && douRate > naraRate)
-      earnedTitles.push({ name: "生粋の道民", description: "奈良よりも北海道の正答率が高い。" });
-    if (naraRate === 1 && NARACount > 0) earnedTitles.push({ name: "奈良県民", description: "奈良県の問題を全問正解。" });
+    if (douRate >= 0.8 && DOUCount > 0) earnedTitles.push({ name: "道民", description: "北海道の問題を8割以上正解。" });
+    if (DOUCount > 0 && douRate === 1 && NARACount > 0 && douRate > naraRate)
+      earnedTitles.push({ name: "生粋の道民", description: "北海道の問題に全問正解し、奈良よりも北海道の正答率が高い。" });
+    if (naraRate >= 0.8 && NARACount > 0) earnedTitles.push({ name: "奈良県民", description: "奈良県の問題を8割以上正解。" });
     if (NARACount >= 5 && naraRate === 1)
       earnedTitles.push({ name: "生粋の奈良県民", description: "奈良の問題に5問以上回答し、全問正解。鹿と山はトモダチ。" });
     if (TotalCount >= 20 && totalRate >= 0.9)
       earnedTitles.push({ name: "マスター旅人", description: "全体の正答率90%以上。地理マスター。" });
-    if (TotalCount >= 20 && totalRate >= 0.8)
-      earnedTitles.push({ name: "凄腕の旅人", description: "全体の正答率80%以上。地理に詳しい。" });
+    if (TotalCount >= 20 && totalRate >= 0.75)
+      earnedTitles.push({ name: "凄腕の旅人", description: "全体の正答率75%以上。地理に詳しい。" });
     if (MaxCorrectKeep >= 10)
       earnedTitles.push({ name: "ゾーン突入", description: "10問以上連続で正解した。今のあなたには全てが見えている。" });
     if (earnedTitles.length === 0 && totalRate < 0.5)
