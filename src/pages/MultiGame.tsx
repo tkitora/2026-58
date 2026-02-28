@@ -31,51 +31,47 @@ export default function MultiGame() {
 
   const [activePlayersCount, setActivePlayersCount] = useState(1);
   const [answeredPlayersCount, setAnsweredPlayersCount] = useState(0);
-
-  // 退出確認ダイアログ用
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const activeIdsRef = useRef<string[]>([]);
+  const isHostRef = useRef(false);
   const nowQuestionRef = useRef(1);
   const phaseRef = useRef<GamePhase>("fetching");
+  const isFinishingRef = useRef(false); 
 
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   useEffect(() => { nowQuestionRef.current = nowQuestion; }, [nowQuestion]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // 次の問題へ進む、または終了する（裏側でホストが代表して実行）
   const handleNextQuestionOrFinish = async () => {
-    if (!roomId || !roomData) return;
-    
+    if (!roomId) return;
     const { data: currentRoom } = await supabase.from("room").select("now, amount").eq("roomid", roomId).single();
     if (currentRoom && currentRoom.now === nowQuestionRef.current) {
       if (currentRoom.now >= currentRoom.amount) {
         await supabase.from("room").update({ stats: "finished" }).eq("roomid", roomId);
       } else {
-        await supabase.from("room").update({
-          now: currentRoom.now + 1,
-          pano: null
-        }).eq("roomid", roomId);
+        await supabase.from("room").update({ now: currentRoom.now + 1, pano: null }).eq("roomid", roomId);
       }
     }
   };
 
   const checkAllAnswered = async () => {
     if (!roomId) return;
-    const { data: players } = await supabase.from("players").select("playerid, answers").eq("roomid", roomId);
-    if (!players) return;
+    const { data: activePlayersData } = await supabase
+      .from("players")
+      .select("playerid, answers")
+      .eq("roomid", roomId)
+      .eq("stats", "active");
 
-    const activeIds = activeIdsRef.current;
+    if (!activePlayersData) return;
+
     const currentQ = nowQuestionRef.current;
-    
-    setActivePlayersCount(activeIds.length);
+    setActivePlayersCount(activePlayersData.length);
 
-    const activePlayersData = players.filter(p => activeIds.includes(p.playerid));
     const answeredCount = activePlayersData.filter(p => p.answers && p.answers.length >= currentQ).length;
-    
     setAnsweredPlayersCount(answeredCount);
 
-    if (answeredCount >= activeIds.length && activeIds.length > 0) {
-      if (isHost && phaseRef.current !== "timeout_reveal") {
+    if (answeredCount >= activePlayersData.length && activePlayersData.length > 0) {
+      if (isHostRef.current && phaseRef.current !== "timeout_reveal") {
         handleNextQuestionOrFinish();
       }
     }
@@ -88,10 +84,12 @@ export default function MultiGame() {
     }
 
     let isMounted = true;
-    let presenceChannel: ReturnType<typeof supabase.channel>;
     let dbChannel: ReturnType<typeof supabase.channel>;
 
     const initGame = async () => {
+      // ★ 修正1: 読み込みの一瞬の隙に退出扱いになるのを防ぐため、確実に部屋に紐づける
+      await supabase.from("players").update({ stats: "active", roomid: roomId }).eq("playerid", playerId);
+
       await loadGoogleMaps();
       gameRef.current = createStreetViewGame();
 
@@ -109,7 +107,13 @@ export default function MultiGame() {
       }
 
       const { data: room } = await supabase.from("room").select("*").eq("roomid", roomId).single();
-      if (!room || !isMounted) return;
+      
+      // ★ 修正2: アンマウント時(isMountedがfalse)は、強制送還させずに単に処理を止める
+      if (!isMounted) return; 
+      if (!room || room.stats === "deleted") {
+         navigate("/multi");
+         return;
+      }
       
       setRoomData(room);
       setIsHost(room.host_id === playerId);
@@ -119,28 +123,23 @@ export default function MultiGame() {
       const { data: me } = await supabase.from("players").select("answers").eq("playerid", playerId).single();
       if (me && me.answers) setMyAnswers(me.answers);
 
-      presenceChannel = supabase.channel(`game_presence_${roomId}`, {
-        config: { presence: { key: playerId } },
-      });
+      checkAllAnswered();
 
-      presenceChannel
-        .on("presence", { event: "sync" }, () => {
-          if (!isMounted) return;
-          const state = presenceChannel.presenceState();
-          activeIdsRef.current = Object.keys(state);
-          checkAllAnswered();
-        })
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED" && isMounted) {
-            await presenceChannel.track({ playerid: playerId });
-          }
-        });
-
-      dbChannel = supabase.channel(`game_db_${roomId}`);
+      const uniqueDbTopic = `game_db_${roomId}_${Date.now()}`;
+      dbChannel = supabase.channel(uniqueDbTopic);
+      
       dbChannel
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room" }, (payload: any) => {
           if (!isMounted || payload.new.roomid !== roomId) return;
           const newRoom = payload.new;
+          
+          if (newRoom.stats === "deleted") {
+             alert("ホストが退出したため、ゲームが終了しました。");
+             isFinishingRef.current = true;
+             navigate("/mainpage");
+             return;
+          }
+
           setRoomData(newRoom);
           
           setNowQuestion((prev) => {
@@ -163,22 +162,39 @@ export default function MultiGame() {
           });
 
           if (newRoom.stats === "finished") {
+            isFinishingRef.current = true;
             navigate("/multiresult"); 
           }
         })
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "players" }, (payload: any) => {
-          if (!isMounted || payload.new.roomid !== roomId) return;
-          checkAllAnswered();
+        .on("postgres_changes", { event: "*", schema: "public", table: "players" }, (payload: any) => {
+          if (!isMounted) return;
+          const targetRoomId = payload.new ? payload.new.roomid : payload.old.roomid;
+          if (targetRoomId === roomId) {
+            checkAllAnswered();
+          }
         })
         .subscribe();
     };
 
     initGame();
 
+    const handleLeave = () => {
+      if (!isFinishingRef.current && roomId && playerId) {
+        // ★ 修正3: MultiRoomと同じく、退出時は stats: left に加え、roomid: null にして完全に部屋から切り離す
+        supabase.from("players").update({ stats: "left", roomid: null }).eq("playerid", playerId).then();
+        if (isHostRef.current) {
+          supabase.from("room").update({ stats: "deleted" }).eq("roomid", roomId).then();
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleLeave);
+
     return () => {
       isMounted = false;
-      if (presenceChannel) supabase.removeChannel(presenceChannel);
       if (dbChannel) supabase.removeChannel(dbChannel);
+      handleLeave();
+      window.removeEventListener("beforeunload", handleLeave);
     };
   }, [navigate, roomId, playerId]);
 
@@ -231,7 +247,6 @@ export default function MultiGame() {
   useEffect(() => {
     if (phase !== "playing" && phase !== "revealed_local") return;
     
-    // ★ 時間切れ処理：自動的に3(未回答)を送信し、フェーズを移行
     if (timeLeft <= 0) {
       const handleTimeout = async () => {
         if (phase === "playing" || phase === "revealed_local") {
@@ -263,13 +278,10 @@ export default function MultiGame() {
     return () => clearInterval(timer);
   }, [phase, timeLeft, selectedAnswer, myAnswers, nowQuestion, playerId, roomData]);
 
-  // ★ タイムアウト時の完全自動進行（5秒後に代表してホストが更新）
   useEffect(() => {
     if (phase === "timeout_reveal") {
       const timer = setTimeout(() => {
-        if (isHost) {
-          handleNextQuestionOrFinish();
-        }
+        if (isHost) handleNextQuestionOrFinish();
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -279,18 +291,7 @@ export default function MultiGame() {
     if ((phase === "revealed_local" || phase === "timeout_reveal") && answerMapRef.current && result && roomData && gameRef.current) {
       answerMapRef.current.innerHTML = "";
       requestAnimationFrame(() => {
-        mapRef.current = new google.maps.Map(answerMapRef.current!, {
-          center: { lat: roomData.lat, lng: roomData.long },
-          zoom: 13,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
-        new google.maps.Marker({
-          map: mapRef.current,
-          position: { lat: roomData.lat, lng: roomData.long },
-          title: `正解: ${roomData.answers[nowQuestion - 1]}`,
-        });
+        mapRef.current = gameRef.current!.renderAnswerMap(answerMapRef.current!, result);
       });
     }
   }, [phase, result, roomData, nowQuestion]);
@@ -327,25 +328,32 @@ export default function MultiGame() {
     }).eq("playerid", playerId);
   };
 
-  // ★ ゲームを抜ける処理
   const handleLeaveGame = async () => {
-    if (!playerId) return;
-    await supabase.from("players").update({ stats: "left" }).eq("playerid", playerId);
+    isFinishingRef.current = true;
+    if (playerId) {
+      await supabase.from("players").update({ stats: "left", roomid: null }).eq("playerid", playerId);
+      if (isHostRef.current && roomId) {
+        await supabase.from("room").update({ stats: "deleted" }).eq("roomid", roomId);
+      }
+    }
     navigate("/mainpage");
   };
 
-  const choiceBtnBase = "w-[120px] py-2 rounded-lg border border-gray-300 font-bold transition";
+  const getBtnClass = () => [
+    "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
+    phase !== "playing" ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+  ].join(" ");
 
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5 flex flex-col items-center">
       <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl">
         
-        {/* ★ 「抜ける」ボタンを追加 */}
-        <div className="flex justify-center items-center mb-4 px-2 relative">
-          <div className="absolute left-0 text-2xl font-bold">第 {nowQuestion} / {roomData?.amount} 問</div>
-          <div className={`text-2xl font-bold ${timeLeft <= 5 ? "text-red-600 animate-pulse" : "text-gray-800"}`}>
+        <div className="relative flex justify-center items-center mb-5">
+          <div className="text-3xl font-bold">現在 {nowQuestion} / {roomData?.amount} 問目</div>          
+          <div className={`absolute left-0 text-xl font-bold ${timeLeft <= 5 ? "text-red-600 animate-pulse" : "text-gray-800"}`}>
             残り: {timeLeft}秒
           </div>
+
           <button
             onClick={() => setIsConfirmOpen(true)}
             className="absolute right-0 px-5 py-2 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-600 active:scale-95 transition"
@@ -354,52 +362,59 @@ export default function MultiGame() {
           </button>
         </div>
 
-        <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300 bg-black">
+        <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300 bg-white">
           <div ref={panoRef} className="w-full h-full" />
           {phase === "fetching" && (
-            <div className="absolute inset-0 bg-black/80 flex items-center justify-center text-white text-2xl font-bold z-10">
-              景色を取得中...
+            <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white">
+              <div className="text-2xl font-bold">景色を探しています...</div>
+              <div className="text-sm mt-2 opacity-90">少しお待ちください</div>
             </div>
           )}
         </div>
 
-        {phase === "playing" && (
-          <div className="flex flex-col items-center gap-4 mt-6 min-h-[50px]">
-            <div className="flex gap-4">
-              <button onClick={() => handleAnswerClick(0)} className={`${choiceBtnBase} bg-gray-50 hover:bg-gray-100 active:scale-95`}>なら！</button>
-              <button onClick={() => handleAnswerClick(1)} className={`${choiceBtnBase} bg-gray-50 hover:bg-gray-100 active:scale-95`}>どう！</button>
-              <button onClick={() => handleAnswerClick(2)} className={`${choiceBtnBase} bg-gray-50 hover:bg-gray-100 active:scale-95`}>それ以外！</button>
-            </div>
-          </div>
-        )}
+        <div className="flex justify-center items-center gap-5 mt-4 min-h-[50px]">
+          <button onClick={() => handleAnswerClick(0)} disabled={phase !== "playing"} className={getBtnClass()}>なら！</button>
+          <button onClick={() => handleAnswerClick(1)} disabled={phase !== "playing"} className={getBtnClass()}>どう！</button>
+          <button onClick={() => handleAnswerClick(2)} disabled={phase !== "playing"} className={getBtnClass()}>それ以外！</button>
+        </div>
 
       </div>
 
       {(phase === "revealed_local" || phase === "waiting_others" || phase === "timeout_reveal") && roomData && result && (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[1000]">
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000]">
           <div className="bg-white p-6 rounded-xl flex flex-col items-center w-[95%] max-w-3xl">
             
             {phase === "timeout_reveal" ? (
               <div className="text-2xl font-bold mb-4 text-red-600">時間切れ！</div>
             ) : (
-              <div className={`text-2xl font-bold mb-4 ${result.ok ? "text-pink-600" : "text-indigo-600"}`}>
+              <div className={["text-2xl font-bold mb-4", result.ok ? "text-pink-600" : "text-indigo-600"].join(" ")}>
                 {result.ok ? "正解！" : "不正解…"}
               </div>
             )}
 
-            <div className="text-lg font-bold text-gray-800 mb-4">
-              正解は <span className="text-pink-600">{roomData.answers[nowQuestion - 1]}</span> でした！
+            <div className="text-lg font-bold text-gray-700 mb-4">
+              ({roomData.answers[nowQuestion - 1]})
             </div>
 
-            <div ref={answerMapRef} className="w-full max-w-[600px] h-[350px] rounded-lg overflow-hidden border border-gray-300" />
+            <div ref={answerMapRef} className="w-full max-w-[600px] h-[450px] rounded-lg overflow-hidden border border-gray-300" />
 
-            <div className="mt-5 w-full flex flex-col items-center gap-3 min-h-[50px]">
+            <div className="mt-5 w-full flex flex-col items-center gap-3">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-5 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 active:scale-95 transition mb-2"
+              >
+                Googleマップで見る
+              </a>
+
               {phase === "revealed_local" && (
                 <button
                   onClick={handleNextSubmit}
-                  className="px-8 py-3 rounded-lg font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition"
+                  className="px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold hover:bg-gray-100 active:scale-95 transition"
                 >
-                  次の問題へ
+                  {/* ★最終問題の時はテキストを切り替える */}
+                  {nowQuestion >= roomData.amount ? "結果を見る" : "確定して次へ"}
                 </button>
               )}
               {phase === "waiting_others" && (
@@ -409,7 +424,8 @@ export default function MultiGame() {
               )}
               {phase === "timeout_reveal" && (
                 <p className="text-lg font-bold text-gray-700">
-                  まもなく次の問題へ進みます...
+                  {/* ★最終問題の時はテキストを切り替える */}
+                  {nowQuestion >= roomData.amount ? "まもなく結果発表へ進みます..." : "まもなく次の問題へ進みます..."}
                 </p>
               )}
             </div>
@@ -418,14 +434,13 @@ export default function MultiGame() {
         </div>
       )}
 
-      {/* ★ 退出確認ダイアログ */}
       {isConfirmOpen && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[1001]">
           <div className="bg-white p-8 rounded-xl text-center w-[95%] max-w-sm shadow-[0_4px_15px_rgba(0,0,0,0.3)]">
             <p className="text-xl font-bold mb-5">
               本当にゲームを抜けますか？
               <br />
-              <span className="text-sm text-gray-600">（他のプレイヤーはそのまま続行します）</span>
+              <span className="text-sm text-gray-600">（ホストの場合は部屋が解散されます）</span>
             </p>
 
             <div className="flex gap-4">

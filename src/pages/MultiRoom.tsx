@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase-oauth/supabase";
 import { Header } from "../index";
 
-type PresencePlayer = {
+type Player = {
   playerid: string;
   name: string;
 };
@@ -12,13 +12,21 @@ function MultiRoom() {
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState<string>("");
   const [isHost, setIsHost] = useState(false);
-  const [players, setPlayers] = useState<PresencePlayer[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   
   const [amount, setAmount] = useState(5);
   const [timeLimit, setTimeLimit] = useState(30);
 
   const roomId = sessionStorage.getItem("roomid");
   const playerId = sessionStorage.getItem("playerid");
+
+  // クロージャの罠回避・画面遷移判定用のRef
+  const isHostRef = useRef(false);
+  const isStartingRef = useRef(false);
+
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
 
   useEffect(() => {
     if (!roomId || !playerId) {
@@ -27,18 +35,17 @@ function MultiRoom() {
     }
 
     let isMounted = true;
-    let presenceChannel: ReturnType<typeof supabase.channel>;
     let dbChannel: ReturnType<typeof supabase.channel>;
 
     const initRoom = async () => {
-      // 1. 部屋情報と自分の情報の取得
+      await supabase.from("players").update({ stats: "active", roomid: roomId }).eq("playerid", playerId);
       const { data: roomData, error: roomError } = await supabase
         .from("room")
-        .select("name, host_id")
+        .select("name, host_id, stats")
         .eq("roomid", roomId)
         .single();
 
-      if (roomError || !roomData) {
+      if (roomError || !roomData || roomData.stats === "deleted") {
         if (isMounted) navigate("/multi");
         return;
       }
@@ -48,43 +55,58 @@ function MultiRoom() {
         setIsHost(roomData.host_id === playerId);
       }
 
-      const { data: playerData } = await supabase
+      const { data: initialPlayers } = await supabase
         .from("players")
-        .select("name")
-        .eq("playerid", playerId)
-        .single();
-        
-      const myName = playerData?.name || "名無しのゲッサー";
+        .select("playerid, name")
+        .eq("roomid", roomId)
+        .eq("stats", "active");
 
-      // 2. Presence用チャンネル（参加者の同期専用）
-      presenceChannel = supabase.channel(`presence_${roomId}`, {
-        config: { presence: { key: playerId } },
-      });
+      if (isMounted && initialPlayers) {
+        setPlayers(initialPlayers);
+      }
 
-      presenceChannel
-        .on("presence", { event: "sync" }, () => {
-          if (!isMounted) return;
-          const state = presenceChannel.presenceState<PresencePlayer>();
-          const activePlayers = Object.values(state).flatMap((p) => p);
-          setPlayers(activePlayers);
-        })
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED" && isMounted) {
-            await presenceChannel.track({ playerid: playerId, name: myName });
-          }
-        });
-
-      // 3. DB監視用チャンネル（ゲーム開始の検知専用）
-      dbChannel = supabase.channel(`db_${roomId}`);
+      const uniqueDbTopic = `db_${roomId}_${Date.now()}`;
+      dbChannel = supabase.channel(uniqueDbTopic);
+      
       dbChannel
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "room" },
-          (payload: any) => {
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "room" }, (payload: any) => {
             if (!isMounted) return;
-            // React側で自分の部屋のプレイ開始を検知
-            if (payload.new.roomid === roomId && payload.new.stats === "playing") {
-              navigate("/multigame");
+            if (payload.new.roomid === roomId) {
+              if (payload.new.stats === "playing") {
+                isStartingRef.current = true;
+                navigate("/multigame");
+              } else if (payload.new.stats === "deleted") {
+                // ホストが抜けて部屋が解散された場合
+                alert("ホストが退出したため、部屋が解散されました。");
+                navigate("/multi");
+              }
+            }
+          }
+        )
+        // ★修正1: イベントを "*" にし、INSERTとUPDATEの両方で入退室を正確に判定する
+        .on("postgres_changes", { event: "*", schema: "public", table: "players" }, (payload: any) => {
+            if (!isMounted) return;
+            
+            const eventType = payload.eventType;
+            
+            // データが完全に削除された場合
+            if (eventType === "DELETE") {
+               setPlayers((prev) => prev.filter(p => p.playerid !== payload.old.playerid));
+               return;
+            }
+
+            const newPlayer = payload.new;
+            
+            // 現在の部屋にいるアクティブなプレイヤーなら追加
+            if (newPlayer.roomid === roomId && newPlayer.stats === "active") {
+              setPlayers((prev) => {
+                if (prev.some(p => p.playerid === newPlayer.playerid)) return prev;
+                return [...prev, { playerid: newPlayer.playerid, name: newPlayer.name }];
+              });
+            } 
+            // 部屋から出た（roomidがnullになった、別になった、statsがleftになった）なら削除
+            else {
+              setPlayers((prev) => prev.filter(p => p.playerid !== newPlayer.playerid));
             }
           }
         )
@@ -93,16 +115,32 @@ function MultiRoom() {
 
     initRoom();
 
+    // ★ 退出・ブラウザ閉じ対策のクリーンアップ関数
+    const handleLeave = () => {
+      if (!isStartingRef.current && roomId && playerId) {
+        // ★修正2: statsをleftにするだけでなく、roomid を null にして完全に部屋から切り離す（ゴースト化防止）
+        supabase.from("players").update({ stats: "left", roomid: null }).eq("playerid", playerId).then();
+        if (isHostRef.current) {
+          supabase.from("room").update({ stats: "deleted" }).eq("roomid", roomId).then();
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleLeave);
+
     return () => {
       isMounted = false;
-      if (presenceChannel) supabase.removeChannel(presenceChannel);
       if (dbChannel) supabase.removeChannel(dbChannel);
+      handleLeave(); // コンポーネント破棄（戻るボタンなど）時にも実行
+      window.removeEventListener("beforeunload", handleLeave);
     };
   }, [navigate, roomId, playerId]);
 
   const handleStartGame = async () => {
     if (!roomId) return;
     
+    isStartingRef.current = true; // 自分が開始ボタンを押したフラグ
+
     const { error } = await supabase
       .from("room")
       .update({

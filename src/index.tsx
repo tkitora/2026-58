@@ -12,4 +12,5 @@ export { default as Header } from './components/Header';
 export { default as MultiPage } from './pages/MultiPage';
 export { default as MultiRoom } from './pages/MultiRoom';
 export { default as MultiGame } from './pages/MultiGame';
+export { default as MultiResult } from './pages/MultiResult';
 

@@ -30,7 +30,6 @@ const handleJoin = async () => {
       return;
     }
 
-    // ★ 名前の入力がなければデフォルト値を設定
     const finalPlayerName = playerNameInput.trim() || "名無しのゲッサー";
 
     setIsLoading(true);
@@ -38,8 +37,20 @@ const handleJoin = async () => {
 
     try {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      // 1. 古い部屋と「古いゲストプレイヤー」の掃除
       await supabase.from("room").delete().lt("update_at", yesterday);
+      await supabase.from("players").delete().eq("is_guest", true).lt("join_at", yesterday);
 
+      // 2. ログイン状態の確認とID/フラグの決定
+      const { data: authData } = await supabase.auth.getSession();
+      const user = authData.session?.user;
+      
+      // ログインしていれば固定ID、そうでなければランダムID
+      const playerId = user ? user.id : crypto.randomUUID();
+      const isGuest = !user;
+
+      // 3. 部屋の取得とホスト権限の確認
       const { data: room, error: roomError } = await supabase
         .from("room")
         .select("*")
@@ -48,22 +59,21 @@ const handleJoin = async () => {
 
       if (roomError) throw roomError;
 
-      const newPlayerId = crypto.randomUUID();
       let targetRoomId = "";
 
       if (room) {
-        // ★ 部屋にいるアクティブなプレイヤーを確認
+        // 部屋にいるアクティブなプレイヤーを確認
         const { data: activePlayers } = await supabase
           .from("players")
           .select("playerid")
           .eq("roomid", room.roomid)
           .eq("stats", "active");
 
-        // ★ 誰もいない（全員退出済み）の場合はホスト権限を奪取して部屋を初期化・再利用
+        // 誰もいない（全員退出済み）の場合はホスト権限を奪取して部屋を初期化・再利用
         if (!activePlayers || activePlayers.length === 0) {
           targetRoomId = room.roomid;
           await supabase.from("room").update({
-            host_id: newPlayerId,
+            host_id: playerId,
             stats: "waiting",
             now: 1,
             answers: []
@@ -81,23 +91,27 @@ const handleJoin = async () => {
         const { error: insertRoomError } = await supabase.from("room").insert({
           roomid: targetRoomId,
           name: roomNameInput.trim(),
-          host_id: newPlayerId,
+          host_id: playerId,
           stats: "waiting",
         });
         if (insertRoomError) throw insertRoomError;
       }
 
-      const { error: insertPlayerError } = await supabase.from("players").insert({
-        playerid: newPlayerId,
+      // 4. プレイヤー情報の UPSERT (更新または挿入)
+      const { error: upsertPlayerError } = await supabase.from("players").upsert({
+        playerid: playerId,
         roomid: targetRoomId,
-        name: finalPlayerName, // ★ 確定した名前を使用
+        name: finalPlayerName,
         stats: "active",
+        is_guest: isGuest,
+        answers: [], // 過去の回答データをリセット
+        join_at: new Date().toISOString() // ゲスト削除判定用に更新日時をセット
       });
 
-      if (insertPlayerError) throw insertPlayerError;
+      if (upsertPlayerError) throw upsertPlayerError;
 
       sessionStorage.setItem("roomid", targetRoomId);
-      sessionStorage.setItem("playerid", newPlayerId);
+      sessionStorage.setItem("playerid", playerId);
 
       navigate("/multiroom");
 
