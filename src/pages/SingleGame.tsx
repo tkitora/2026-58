@@ -243,261 +243,269 @@ function SingleGame() {
   };
 
   return (
-  <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
-    <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl mx-auto">
-      {/* 上部：問題数 + 回答状況ボタン */}
-      <div className="relative flex justify-center items-center mb-5">
-        <div className="text-3xl font-bold">現在 {CurrentNumber} 問目</div>
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
+      <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl mx-auto">
+        {/* 上部：問題数 + 回答状況ボタン */}
+        <div className="relative flex justify-center items-center mb-5">
+          <div className="text-3xl font-bold">現在 {CurrentNumber} 問目</div>
 
-        <button
-          onClick={() => setIsStatsOpen(true)}
-          className="absolute right-0 px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 text-sm font-bold
+          <button
+            onClick={() => setIsStatsOpen(true)}
+            className="absolute right-0 px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 text-sm font-bold
                      hover:bg-gray-100 active:scale-95 transition"
-        >
-          現在の回答状況
-        </button>
-      </div>
-
-      {/* メイン */}
-      <div className="w-full mx-auto">
-        {/* ストリートビュー枠 */}
-        <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300 bg-white">
-          <div ref={panoRef} className="w-full h-full" />
-
-          {/* ロード中オーバーレイ */}
-          {isLoading && (
-            <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white">
-              <div className="text-2xl font-bold">景色を探しています...</div>
-              <div className="text-sm mt-2 opacity-90">少しお待ちください</div>
-            </div>
-          )}
-        </div>
-
-        {/* 再取得 */}
-        <div className="flex justify-end items-center gap-3 mt-2">
-          <span className="text-xs text-gray-600">
-            ※10秒以上経っても景色が出ない場合は、再取得をお試しください。
-          </span>
-          <button
-            onClick={nextQuestion}
-            disabled={isLoading}
-            className={[
-              "px-2 py-1 text-xs rounded border border-gray-400 bg-white font-bold transition",
-              isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
-            ].join(" ")}
           >
-            ↻ 景色を再取得する
+            現在の回答状況
           </button>
         </div>
 
-        {/* 回答ボタン */}
-        <div className="flex justify-center items-center gap-5 mt-4 min-h-[50px]">
-          <button
-            onClick={() => submit("奈良県")}
-            disabled={open}
-            className={[
-              "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
-              open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
-            ].join(" ")}
-          >
-            なら！
-          </button>
-          <button
-            onClick={() => submit("北海道")}
-            disabled={open}
-            className={[
-              "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
-              open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
-            ].join(" ")}
-          >
-            どう！
-          </button>
-          <button
-            onClick={() => submit("OTHER")}
-            disabled={open}
-            className={[
-              "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
-              open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
-            ].join(" ")}
-          >
-            それ以外！
-          </button>
-        </div>
-      </div>
-    </div>
+        {/* メイン */}
+        <div className="w-full mx-auto">
+          {/* ストリートビュー枠 */}
+          <div className="relative w-full h-[500px] rounded-lg overflow-hidden border border-gray-300 bg-white">
+            <div ref={panoRef} className="w-full h-full" />
 
-    {/* ========== 答え合わせダイアログ ========== */}
-    {open && result && (
-      <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000]">
-        <div className="bg-white p-6 rounded-xl flex flex-col items-center w-[95%] max-w-3xl">
-          <div
-            className={[
-              "text-2xl font-bold mb-4",
-              result.ok ? "text-pink-600" : "text-indigo-600",
-            ].join(" ")}
-          >
-            {result.ok ? (CorrectKeep >= 2 ? `${CorrectKeep}回連続正解！` : "正解！") : "不正解…"}
+            {/* ロード中オーバーレイ */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white">
+                <div className="text-2xl font-bold mb-2 ">
+                  {"景色を探しています...".split("").map((char, i) => (
+                    <span
+                      key={i}
+                      className="inline-block animate-wave"
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    >
+                      {char}
+                    </span>
+                  ))}</div>
+              </div>
+            )}
           </div>
 
-          <div className="text-lg font-bold text-gray-700 mb-4">
-            ({question?.prefName})
-          </div>
-
-          {/* マップ */}
-          <div
-            ref={answerMapRef}
-            className="w-full max-w-[600px] h-[450px] rounded-lg overflow-hidden border border-gray-300"
-          />
-
-          <div className="mt-5 w-full flex flex-col items-center gap-3">
-            <a
-              href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-5 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 active:scale-95 transition"
-            >
-              Googleマップで見る
-            </a>
-
+          {/* 再取得 */}
+          <div className="flex justify-end items-center gap-3 mt-2">
+            <span className="text-xs text-gray-600">
+              ※10秒以上経っても景色が出ない場合は、再取得をお試しください。
+            </span>
             <button
               onClick={nextQuestion}
-              className="px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold hover:bg-gray-100 active:scale-95 transition"
+              disabled={isLoading}
+              className={[
+                "px-2 py-1 text-xs rounded border border-gray-400 bg-white font-bold transition",
+                isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+              ].join(" ")}
             >
-              次の問題へ
+              ↻ 景色を再取得する
+            </button>
+          </div>
+
+          {/* 回答ボタン */}
+          <div className="flex justify-center items-center gap-5 mt-4 min-h-[50px]">
+            <button
+              onClick={() => submit("奈良県")}
+              disabled={open}
+              className={[
+                "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
+                open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+              ].join(" ")}
+            >
+              なら！
+            </button>
+            <button
+              onClick={() => submit("北海道")}
+              disabled={open}
+              className={[
+                "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
+                open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+              ].join(" ")}
+            >
+              どう！
+            </button>
+            <button
+              onClick={() => submit("OTHER")}
+              disabled={open}
+              className={[
+                "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
+                open ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+              ].join(" ")}
+            >
+              それ以外！
             </button>
           </div>
         </div>
       </div>
-    )}
 
-    {/* ========== 回答状況ダイアログ ========== */}
-    {isStatsOpen && (
-      <div
-        className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]"
-        onClick={() => {
-          if (!isConfirmOpen && !isGameEnded) setIsStatsOpen(false);
-        }}
-      >
-        <div
-          className="relative bg-white p-10 rounded-xl w-[95%] max-w-lg text-center shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* 閉じる（ゲーム終了前のみ） */}
-          {!isGameEnded && (
-            <button
-              onClick={() => setIsStatsOpen(false)}
-              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl font-bold
-                         flex items-center justify-center hover:bg-black active:scale-95 transition"
+      {/* ========== 答え合わせダイアログ ========== */}
+      {open && result && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000]">
+          <div className="bg-white p-6 rounded-xl flex flex-col items-center w-[95%] max-w-3xl">
+            <div
+              className={[
+                "text-2xl font-bold mb-4",
+                result.ok ? "text-pink-600" : "text-indigo-600",
+              ].join(" ")}
             >
-              ×
-            </button>
-          )}
-
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">現在の回答状況</h2>
-
-          {/* 表 */}
-          <table className="w-full border-collapse text-lg mb-8">
-            <thead>
-              <tr>
-                <th className="border-b-2 border-gray-300 py-2 w-[34%]">区分</th>
-                <th className="border-b-2 border-gray-300 py-2 w-[33%]">出題数</th>
-                <th className="border-b-2 border-gray-300 py-2 w-[33%]">正解数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="border-b border-gray-200 py-3 font-bold">全体</td>
-                <td className="border-b border-gray-200 py-3">{TotalCount}</td>
-                <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{TotalCorrect}</td>
-              </tr>
-              <tr>
-                <td className="border-b border-gray-200 py-3 font-bold">奈良</td>
-                <td className="border-b border-gray-200 py-3">{NARACount}</td>
-                <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{NARACorrect}</td>
-              </tr>
-              <tr>
-                <td className="border-b border-gray-200 py-3 font-bold">北海道</td>
-                <td className="border-b border-gray-200 py-3">{DOUCount}</td>
-                <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{DOUCorrect}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* 称号 */}
-          {isGameEnded && (
-            <div className="my-5 p-5 bg-amber-50 rounded-lg border-2 border-amber-300 text-left">
-              <h3 className="text-lg font-bold text-center mb-4">獲得した称号</h3>
-
-              <div className="flex flex-col gap-3 mb-5">
-                {getTitles().map((title, index) => (
-                  <details
-                    key={index}
-                    className="bg-white p-3 rounded-md border border-amber-300 cursor-pointer"
-                  >
-                    <summary className="text-lg font-bold text-orange-700 outline-none">
-                      🏆 {title.name}
-                    </summary>
-                    <p className="mt-2 text-sm text-gray-700 pl-6">{title.description}</p>
-                  </details>
-                ))}
-              </div>
-
-              <div className="text-center">
-                <button
-                  onClick={() => navigate("/")}
-                  className="w-[200px] py-2 rounded-lg font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition"
-                >
-                  ホームに戻る
-                </button>
-              </div>
+              {result.ok ? (CorrectKeep >= 2 ? `${CorrectKeep}回連続正解！` : "正解！") : "不正解…"}
             </div>
-          )}
 
-          {/* 終了ボタン */}
-          {!isGameEnded && (
-            <div className="text-center mt-5">
-              <button
-                onClick={() => setIsConfirmOpen(true)}
-                className="w-[250px] py-3 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition text-lg"
+            <div className="text-lg font-bold text-gray-700 mb-4">
+              ({question?.prefName})
+            </div>
+
+            {/* マップ */}
+            <div
+              ref={answerMapRef}
+              className="w-full max-w-[600px] h-[450px] rounded-lg overflow-hidden border border-gray-300"
+            />
+
+            <div className="mt-5 w-full flex flex-col items-center gap-3">
+              <a
+                href={`https://maps.google.com/maps?q=${result.correctLatLng.lat()},${result.correctLatLng.lng()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-5 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 active:scale-95 transition"
               >
-                回答を終了する
+                Googleマップで見る
+              </a>
+
+              <button
+                onClick={nextQuestion}
+                className="px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold hover:bg-gray-100 active:scale-95 transition"
+              >
+                次の問題へ
               </button>
-              <p className="mt-3 text-base text-gray-600">
-                ※終了時、結果に応じた称号が獲得できます
-              </p>
             </div>
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* ========== 終了確認ダイアログ ========== */}
-    {isConfirmOpen && (
-      <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[1001]">
-        <div className="bg-white p-8 rounded-xl text-center w-[95%] max-w-sm shadow-[0_4px_15px_rgba(0,0,0,0.3)]">
-          <p className="text-xl font-bold mb-6">本当に回答を終了しますか？</p>
-
-          <div className="flex gap-4">
-            <button
-              onClick={() => {
-                setIsConfirmOpen(false);
-                setIsGameEnded(true);
-              }}
-              className="flex-1 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition"
-            >
-              はい
-            </button>
-            <button
-              onClick={() => setIsConfirmOpen(false)}
-              className="flex-1 py-2 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
-            >
-              いいえ
-            </button>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+
+      {/* ========== 回答状況ダイアログ ========== */}
+      {isStatsOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]"
+          onClick={() => {
+            if (!isConfirmOpen && !isGameEnded) setIsStatsOpen(false);
+          }}
+        >
+          <div
+            className="relative bg-white p-10 rounded-xl w-[95%] max-w-lg text-center shadow-[0_4px_15px_rgba(0,0,0,0.2)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 閉じる（ゲーム終了前のみ） */}
+            {!isGameEnded && (
+              <button
+                onClick={() => setIsStatsOpen(false)}
+                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-gray-800 text-white text-2xl font-bold
+                         flex items-center justify-center hover:bg-black active:scale-95 transition"
+              >
+                ×
+              </button>
+            )}
+
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">現在の回答状況</h2>
+
+            {/* 表 */}
+            <table className="w-full border-collapse text-lg mb-8">
+              <thead>
+                <tr>
+                  <th className="border-b-2 border-gray-300 py-2 w-[34%]">区分</th>
+                  <th className="border-b-2 border-gray-300 py-2 w-[33%]">出題数</th>
+                  <th className="border-b-2 border-gray-300 py-2 w-[33%]">正解数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border-b border-gray-200 py-3 font-bold">全体</td>
+                  <td className="border-b border-gray-200 py-3">{TotalCount}</td>
+                  <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{TotalCorrect}</td>
+                </tr>
+                <tr>
+                  <td className="border-b border-gray-200 py-3 font-bold">奈良</td>
+                  <td className="border-b border-gray-200 py-3">{NARACount}</td>
+                  <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{NARACorrect}</td>
+                </tr>
+                <tr>
+                  <td className="border-b border-gray-200 py-3 font-bold">北海道</td>
+                  <td className="border-b border-gray-200 py-3">{DOUCount}</td>
+                  <td className="border-b border-gray-200 py-3 font-bold text-pink-600">{DOUCorrect}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* 称号 */}
+            {isGameEnded && (
+              <div className="my-5 p-5 bg-amber-50 rounded-lg border-2 border-amber-300 text-left">
+                <h3 className="text-lg font-bold text-center mb-4">獲得した称号</h3>
+
+                <div className="flex flex-col gap-3 mb-5">
+                  {getTitles().map((title, index) => (
+                    <details
+                      key={index}
+                      className="bg-white p-3 rounded-md border border-amber-300 cursor-pointer"
+                    >
+                      <summary className="text-lg font-bold text-orange-700 outline-none">
+                        🏆 {title.name}
+                      </summary>
+                      <p className="mt-2 text-sm text-gray-700 pl-6">{title.description}</p>
+                    </details>
+                  ))}
+                </div>
+
+                <div className="text-center">
+                  <button
+                    onClick={() => navigate("/")}
+                    className="w-[200px] py-2 rounded-lg font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition"
+                  >
+                    ホームに戻る
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 終了ボタン */}
+            {!isGameEnded && (
+              <div className="text-center mt-5">
+                <button
+                  onClick={() => setIsConfirmOpen(true)}
+                  className="w-[250px] py-3 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition text-lg"
+                >
+                  回答を終了する
+                </button>
+                <p className="mt-3 text-base text-gray-600">
+                  ※終了時、結果に応じた称号が獲得できます
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========== 終了確認ダイアログ ========== */}
+      {isConfirmOpen && (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[1001]">
+          <div className="bg-white p-8 rounded-xl text-center w-[95%] max-w-sm shadow-[0_4px_15px_rgba(0,0,0,0.3)]">
+            <p className="text-xl font-bold mb-6">本当に回答を終了しますか？</p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsConfirmOpen(false);
+                  setIsGameEnded(true);
+                }}
+                className="flex-1 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 active:scale-95 transition"
+              >
+                はい
+              </button>
+              <button
+                onClick={() => setIsConfirmOpen(false)}
+                className="flex-1 py-2 rounded-lg font-bold bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95 transition"
+              >
+                いいえ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 export default SingleGame;

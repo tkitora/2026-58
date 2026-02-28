@@ -1,8 +1,9 @@
 // src/pages/SingleRank.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Header } from "../index";
+import defaultIcon from "/src/assets/default_icon.png";
 
 // データベースから取得するデータの型定義
 type RankData = {
@@ -10,6 +11,12 @@ type RankData = {
   player_name: string;
   score: number;
   created_at: string;
+  user_id: string | null; // ★追加
+};
+
+type PublicProfile = {
+  id: string;
+  avatar_url: string | null;
 };
 
 const ITEMS_PER_PAGE = 20; // 1ページあたりの表示件数
@@ -19,6 +26,9 @@ function SingleRank() {
   const [rankings, setRankings] = useState<RankData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // ★ user_id -> avatar_url の辞書
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
 
   // 初回表示時にSupabaseからデータを取得する
   useEffect(() => {
@@ -34,8 +44,9 @@ function SingleRank() {
 
       if (error) {
         console.error("ランキングの取得に失敗しました:", error.message);
+        setRankings([]);
       } else {
-        setRankings(data || []);
+        setRankings((data || []) as RankData[]);
       }
 
       setIsLoading(false);
@@ -47,13 +58,58 @@ function SingleRank() {
   // ページネーション用の計算
   const totalPages = Math.ceil(rankings.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  // 現在のページに表示する20件だけを切り出す
   const currentItems = rankings.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  // ★ 現在ページに表示される user_id だけ拾う（null除外＆重複除外）
+  const pageUserIds = useMemo(() => {
+    const ids = currentItems.map((x) => x.user_id).filter((x): x is string => !!x);
+    return Array.from(new Set(ids));
+  }, [currentItems]);
+
+  // ★ 現在ページの user_id 群のアイコンを public_profiles からまとめて取得
+  useEffect(() => {
+    async function fetchAvatarsForPage() {
+      if (pageUserIds.length === 0) return;
+
+      // 既に持っているIDは除外（無駄な通信を減らす）
+      const missing = pageUserIds.filter((id) => !avatarMap[id]);
+      if (missing.length === 0) return;
+
+      const { data, error } = await supabase
+        .from("public_profiles")
+        .select("id, avatar_url")
+        .in("id", missing);
+
+      if (error) {
+        console.error("public_profiles の取得に失敗しました:", error.message);
+        return;
+      }
+
+      const next: Record<string, string> = {};
+      (data as PublicProfile[]).forEach((p) => {
+        if (p.id && p.avatar_url) next[p.id] = p.avatar_url;
+      });
+
+      setAvatarMap((prev) => ({ ...prev, ...next }));
+    }
+
+    fetchAvatarsForPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageUserIds]);
 
   // 日付を見やすくフォーマットする関数
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(
+      2,
+      "0"
+    )} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  // ★ 行ごとの表示アイコン
+  const iconForRow = (row: RankData) => {
+    if (!row.user_id) return defaultIcon;
+    return avatarMap[row.user_id] || defaultIcon;
   };
 
   return (
@@ -86,14 +142,25 @@ function SingleRank() {
                         className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                       >
                         <td className="py-4 px-4 font-bold text-gray-600 text-lg">
-                          {item.player_name}
+                          <div className="flex items-center gap-3">
+                            {/* アイコンは固定サイズ */}
+                            <img
+                              src={iconForRow(item)}
+                              alt="icon"
+                              className="w-10 h-10 rounded-full border border-gray-300 object-cover bg-white flex-none"
+                            />
+
+                            {/* 名前ははみ出したら省略 */}
+                            <span className="block w-full min-w-0 truncate text-left">
+                              {item.player_name}
+                            </span>
+                          </div>
                         </td>
+
                         <td className="py-4 px-4 font-bold text-pink-600 text-lg">
                           {item.score}問 / 20問
                         </td>
-                        <td className="py-4 px-4 text-sm text-gray-500">
-                          {formatDate(item.created_at)}
-                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-500">{formatDate(item.created_at)}</td>
                       </tr>
                     ))
                   ) : (
@@ -134,6 +201,6 @@ function SingleRank() {
       </div>
     </div>
   );
-};
+}
 
 export default SingleRank;
