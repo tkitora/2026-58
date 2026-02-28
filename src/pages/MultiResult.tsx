@@ -177,20 +177,17 @@ export default function MultiResult() {
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-10 px-5 flex flex-col items-center">
       
-      {/* メインランキングエリア */}
       <div className="bg-white/95 backdrop-blur border-2 border-black rounded-xl w-[95%] sm:w-4/5 md:w-2/3 max-w-3xl overflow-hidden shadow-lg flex flex-col max-h-[80vh]">
         <div className="py-4 text-center border-b border-gray-300">
           <h2 className="text-3xl font-bold text-gray-800">🏆 ランキング 🏆</h2>
           <p className="text-sm text-gray-500 mt-1">プレイヤー名をクリックして詳細を見る</p>
         </div>
 
-        {/* リストのヘッダー */}
         <div className="flex text-lg font-bold bg-amber-500 text-white py-3 px-6">
           <div className="flex-[2] text-center">プレイヤー名</div>
           <div className="flex-1 text-center">スコア</div>
         </div>
 
-        {/* スクロール可能なランキングリスト */}
         <div className="overflow-y-auto flex-1 p-2">
           {ranking.map((p, idx) => {
             const isMe = p.playerid === playerId;
@@ -223,7 +220,6 @@ export default function MultiResult() {
         </div>
       </div>
 
-      {/* ボトムアクションボタン */}
       <div className="mt-6 flex flex-col sm:flex-row gap-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-3xl justify-center">
         <button
           onClick={handleReturnToRoom}
@@ -239,7 +235,6 @@ export default function MultiResult() {
         </button>
       </div>
 
-      {/* ========== 個別プレイヤー詳細ポップアップ ========== */}
       {selectedPlayer && (
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]" onClick={() => setSelectedPlayer(null)}>
           <div

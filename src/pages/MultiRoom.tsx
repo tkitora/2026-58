@@ -20,7 +20,6 @@ function MultiRoom() {
   const roomId = sessionStorage.getItem("roomid");
   const playerId = sessionStorage.getItem("playerid");
 
-  // クロージャの罠回避・画面遷移判定用のRef
   const isHostRef = useRef(false);
   const isStartingRef = useRef(false);
 
@@ -38,7 +37,9 @@ function MultiRoom() {
     let dbChannel: ReturnType<typeof supabase.channel>;
 
     const initRoom = async () => {
+      // 復帰処理
       await supabase.from("players").update({ stats: "active", roomid: roomId }).eq("playerid", playerId);
+
       const { data: roomData, error: roomError } = await supabase
         .from("room")
         .select("name, host_id, stats")
@@ -73,39 +74,31 @@ function MultiRoom() {
             if (!isMounted) return;
             if (payload.new.roomid === roomId) {
               if (payload.new.stats === "playing") {
-                isStartingRef.current = true;
+                isStartingRef.current = true; // ★ゲストも開始フラグを立ててから遷移する
                 navigate("/multigame");
               } else if (payload.new.stats === "deleted") {
-                // ホストが抜けて部屋が解散された場合
                 alert("ホストが退出したため、部屋が解散されました。");
                 navigate("/multi");
               }
             }
           }
         )
-        // ★修正1: イベントを "*" にし、INSERTとUPDATEの両方で入退室を正確に判定する
         .on("postgres_changes", { event: "*", schema: "public", table: "players" }, (payload: any) => {
             if (!isMounted) return;
-            
             const eventType = payload.eventType;
             
-            // データが完全に削除された場合
             if (eventType === "DELETE") {
                setPlayers((prev) => prev.filter(p => p.playerid !== payload.old.playerid));
                return;
             }
 
             const newPlayer = payload.new;
-            
-            // 現在の部屋にいるアクティブなプレイヤーなら追加
             if (newPlayer.roomid === roomId && newPlayer.stats === "active") {
               setPlayers((prev) => {
                 if (prev.some(p => p.playerid === newPlayer.playerid)) return prev;
                 return [...prev, { playerid: newPlayer.playerid, name: newPlayer.name }];
               });
-            } 
-            // 部屋から出た（roomidがnullになった、別になった、statsがleftになった）なら削除
-            else {
+            } else {
               setPlayers((prev) => prev.filter(p => p.playerid !== newPlayer.playerid));
             }
           }
@@ -115,10 +108,8 @@ function MultiRoom() {
 
     initRoom();
 
-    // ★ 退出・ブラウザ閉じ対策のクリーンアップ関数
-    const handleLeave = () => {
+    const handleBeforeUnload = () => {
       if (!isStartingRef.current && roomId && playerId) {
-        // ★修正2: statsをleftにするだけでなく、roomid を null にして完全に部屋から切り離す（ゴースト化防止）
         supabase.from("players").update({ stats: "left", roomid: null }).eq("playerid", playerId).then();
         if (isHostRef.current) {
           supabase.from("room").update({ stats: "deleted" }).eq("roomid", roomId).then();
@@ -126,20 +117,22 @@ function MultiRoom() {
       }
     };
 
-    window.addEventListener("beforeunload", handleLeave);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       isMounted = false;
       if (dbChannel) supabase.removeChannel(dbChannel);
-      handleLeave(); // コンポーネント破棄（戻るボタンなど）時にも実行
-      window.removeEventListener("beforeunload", handleLeave);
+      // ★不安定な unmount 時の DBクリーンアップを削除し、事故を防止
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [navigate, roomId, playerId]);
 
   const handleStartGame = async () => {
     if (!roomId) return;
-    
-    isStartingRef.current = true; // 自分が開始ボタンを押したフラグ
+    isStartingRef.current = true;
+
+    // 【追加】部屋にいる全プレイヤーの過去の回答データをリセットする
+    await supabase.from("players").update({ answers: [] }).eq("roomid", roomId);
 
     const { error } = await supabase
       .from("room")

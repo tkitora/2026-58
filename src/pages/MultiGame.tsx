@@ -37,20 +37,34 @@ export default function MultiGame() {
   const nowQuestionRef = useRef(1);
   const phaseRef = useRef<GamePhase>("fetching");
   const isFinishingRef = useRef(false); 
+  const isTimeoutHandledRef = useRef(false);
 
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   useEffect(() => { nowQuestionRef.current = nowQuestion; }, [nowQuestion]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => {
+    isTimeoutHandledRef.current = false;
+  }, [nowQuestion]);
 
-  const handleNextQuestionOrFinish = async () => {
+const handleNextQuestionOrFinish = async () => {
     if (!roomId) return;
     const { data: currentRoom } = await supabase.from("room").select("now, amount").eq("roomid", roomId).single();
-    if (currentRoom && currentRoom.now === nowQuestionRef.current) {
-      if (currentRoom.now >= currentRoom.amount) {
-        await supabase.from("room").update({ stats: "finished" }).eq("roomid", roomId);
+    
+    // 【追加】取得した部屋の状態を出力
+    console.log(`[handleNextQuestionOrFinish] 部屋データ:`, currentRoom, `現在の問題数:`, nowQuestionRef.current);
+    
+    // 文字列で返ってくる可能性も考慮し Number() で比較
+    if (currentRoom && Number(currentRoom.now) === Number(nowQuestionRef.current)) {
+      if (Number(currentRoom.now) >= Number(currentRoom.amount)) {
+        console.log(`[handleNextQuestionOrFinish] 最終問題を検知。statsをfinishedに更新します`);
+        const { error } = await supabase.from("room").update({ stats: "finished" }).eq("roomid", roomId);
+        if (error) console.error("DB更新エラー:", error);
       } else {
-        await supabase.from("room").update({ now: currentRoom.now + 1, pano: null }).eq("roomid", roomId);
+        console.log(`[handleNextQuestionOrFinish] 次の問題へ更新します`);
+        await supabase.from("room").update({ now: Number(currentRoom.now) + 1, pano: null }).eq("roomid", roomId);
       }
+    } else {
+      console.log(`[handleNextQuestionOrFinish] 条件不一致で処理を中断`);
     }
   };
 
@@ -70,8 +84,11 @@ export default function MultiGame() {
     const answeredCount = activePlayersData.filter(p => p.answers && p.answers.length >= currentQ).length;
     setAnsweredPlayersCount(answeredCount);
 
+    console.log(`[checkAllAnswered] 問題:${currentQ}, 回答済:${answeredCount}/${activePlayersData.length}, ホスト:${isHostRef.current}, フェーズ:${phaseRef.current}`);
+
     if (answeredCount >= activePlayersData.length && activePlayersData.length > 0) {
       if (isHostRef.current && phaseRef.current !== "timeout_reveal") {
+        console.log(`[checkAllAnswered] ホストとして handleNextQuestionOrFinish を実行します`);
         handleNextQuestionOrFinish();
       }
     }
@@ -87,7 +104,6 @@ export default function MultiGame() {
     let dbChannel: ReturnType<typeof supabase.channel>;
 
     const initGame = async () => {
-      // ★ 修正1: 読み込みの一瞬の隙に退出扱いになるのを防ぐため、確実に部屋に紐づける
       await supabase.from("players").update({ stats: "active", roomid: roomId }).eq("playerid", playerId);
 
       await loadGoogleMaps();
@@ -108,7 +124,6 @@ export default function MultiGame() {
 
       const { data: room } = await supabase.from("room").select("*").eq("roomid", roomId).single();
       
-      // ★ 修正2: アンマウント時(isMountedがfalse)は、強制送還させずに単に処理を止める
       if (!isMounted) return; 
       if (!room || room.stats === "deleted") {
          navigate("/multi");
@@ -140,7 +155,7 @@ export default function MultiGame() {
              return;
           }
 
-          setRoomData(newRoom);
+          setRoomData((prev : any) => (prev ? { ...prev, ...newRoom } : newRoom));
           
           setNowQuestion((prev) => {
             if (newRoom.now > prev) {
@@ -161,10 +176,10 @@ export default function MultiGame() {
             return prevPhase;
           });
 
-          if (newRoom.stats === "finished") {
-            isFinishingRef.current = true;
-            navigate("/multiresult"); 
-          }
+          // if (newRoom.stats === "finished") {
+          //   isFinishingRef.current = true;
+          //   navigate("/multiresult"); 
+          // }
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "players" }, (payload: any) => {
           if (!isMounted) return;
@@ -178,9 +193,8 @@ export default function MultiGame() {
 
     initGame();
 
-    const handleLeave = () => {
+    const handleBeforeUnload = () => {
       if (!isFinishingRef.current && roomId && playerId) {
-        // ★ 修正3: MultiRoomと同じく、退出時は stats: left に加え、roomid: null にして完全に部屋から切り離す
         supabase.from("players").update({ stats: "left", roomid: null }).eq("playerid", playerId).then();
         if (isHostRef.current) {
           supabase.from("room").update({ stats: "deleted" }).eq("roomid", roomId).then();
@@ -188,15 +202,24 @@ export default function MultiGame() {
       }
     };
 
-    window.addEventListener("beforeunload", handleLeave);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       isMounted = false;
       if (dbChannel) supabase.removeChannel(dbChannel);
-      handleLeave();
-      window.removeEventListener("beforeunload", handleLeave);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [navigate, roomId, playerId]);
+
+  useEffect(() => {
+    // 【追加】現在のstatsを出力
+    console.log(`[useEffect] 現在のstats: ${roomData?.stats}`);
+    if (roomData?.stats === "finished") {
+      console.log(`[useEffect] finishedを検知。リザルトへ遷移します`);
+      isFinishingRef.current = true;
+      navigate("/multiresult");
+    }
+  }, [roomData?.stats, navigate]);
 
   useEffect(() => {
     if (isHost && phase === "fetching" && roomData) {
@@ -248,13 +271,19 @@ export default function MultiGame() {
     if (phase !== "playing" && phase !== "revealed_local") return;
     
     if (timeLeft <= 0) {
+      // 【追加】既にタイムアウト処理中なら弾く
+      if (isTimeoutHandledRef.current) return;
+      isTimeoutHandledRef.current = true; // ロックをかける
+
       const handleTimeout = async () => {
+        // 【修正】非同期処理（await）の前に、先にフェーズを変更してUIを切り替える
+        setPhase("timeout_reveal");
+
         if (phase === "playing" || phase === "revealed_local") {
           const finalAnswer = selectedAnswer !== null ? selectedAnswer : 3; 
           const updatedMyAnswers = [...myAnswers];
           updatedMyAnswers[nowQuestion - 1] = finalAnswer;
           setMyAnswers(updatedMyAnswers);
-          await supabase.from("players").update({ answers: updatedMyAnswers }).eq("playerid", playerId);
           
           if (selectedAnswer === null && roomData) {
             const pseudoQuestion: Question = {
@@ -267,8 +296,10 @@ export default function MultiGame() {
               setResult(ansResult);
             }
           }
+
+          // DB更新は一番最後に実行する
+          await supabase.from("players").update({ answers: updatedMyAnswers }).eq("playerid", playerId);
         }
-        setPhase("timeout_reveal");
       };
       handleTimeout();
       return;
@@ -344,11 +375,15 @@ export default function MultiGame() {
     phase !== "playing" ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
   ].join(" ");
 
+  // ★ 最終問題かどうかの判定（数値変換で安全に）
+  const isLastQuestion = roomData && Number(nowQuestion) >= Number(roomData.amount);
+
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5 flex flex-col items-center">
       <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl">
         
         <div className="relative flex justify-center items-center mb-5">
+          {/* ★ 問題数表示の変更 */}
           <div className="text-3xl font-bold">現在 {nowQuestion} / {roomData?.amount} 問目</div>          
           <div className={`absolute left-0 text-xl font-bold ${timeLeft <= 5 ? "text-red-600 animate-pulse" : "text-gray-800"}`}>
             残り: {timeLeft}秒
@@ -414,18 +449,18 @@ export default function MultiGame() {
                   className="px-5 py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold hover:bg-gray-100 active:scale-95 transition"
                 >
                   {/* ★最終問題の時はテキストを切り替える */}
-                  {nowQuestion >= roomData.amount ? "結果を見る" : "確定して次へ"}
+                  {isLastQuestion ? "結果を見る" : "次の問題へ"}
                 </button>
               )}
               {phase === "waiting_others" && (
                 <p className="text-lg font-bold text-gray-700 animate-pulse">
-                  他のプレイヤーの回答を待機中です... ({answeredPlayersCount}/{activePlayersCount})
+                  他のプレイヤーを待機中です... ({answeredPlayersCount}/{activePlayersCount})
                 </p>
               )}
               {phase === "timeout_reveal" && (
                 <p className="text-lg font-bold text-gray-700">
                   {/* ★最終問題の時はテキストを切り替える */}
-                  {nowQuestion >= roomData.amount ? "まもなく結果発表へ進みます..." : "まもなく次の問題へ進みます..."}
+                  {isLastQuestion ? "まもなく結果発表へ進みます..." : "まもなく次の問題へ進みます..."}
                 </p>
               )}
             </div>
