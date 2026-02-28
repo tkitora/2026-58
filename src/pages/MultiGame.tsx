@@ -51,20 +51,15 @@ const handleNextQuestionOrFinish = async () => {
     const { data: currentRoom } = await supabase.from("room").select("now, amount").eq("roomid", roomId).single();
     
     // 【追加】取得した部屋の状態を出力
-    console.log(`[handleNextQuestionOrFinish] 部屋データ:`, currentRoom, `現在の問題数:`, nowQuestionRef.current);
     
     // 文字列で返ってくる可能性も考慮し Number() で比較
     if (currentRoom && Number(currentRoom.now) === Number(nowQuestionRef.current)) {
       if (Number(currentRoom.now) >= Number(currentRoom.amount)) {
-        console.log(`[handleNextQuestionOrFinish] 最終問題を検知。statsをfinishedに更新します`);
         const { error } = await supabase.from("room").update({ stats: "finished" }).eq("roomid", roomId);
         if (error) console.error("DB更新エラー:", error);
       } else {
-        console.log(`[handleNextQuestionOrFinish] 次の問題へ更新します`);
         await supabase.from("room").update({ now: Number(currentRoom.now) + 1, pano: null }).eq("roomid", roomId);
       }
-    } else {
-      console.log(`[handleNextQuestionOrFinish] 条件不一致で処理を中断`);
     }
   };
 
@@ -84,11 +79,8 @@ const handleNextQuestionOrFinish = async () => {
     const answeredCount = activePlayersData.filter(p => p.answers && p.answers.length >= currentQ).length;
     setAnsweredPlayersCount(answeredCount);
 
-    console.log(`[checkAllAnswered] 問題:${currentQ}, 回答済:${answeredCount}/${activePlayersData.length}, ホスト:${isHostRef.current}, フェーズ:${phaseRef.current}`);
-
     if (answeredCount >= activePlayersData.length && activePlayersData.length > 0) {
       if (isHostRef.current && phaseRef.current !== "timeout_reveal") {
-        console.log(`[checkAllAnswered] ホストとして handleNextQuestionOrFinish を実行します`);
         handleNextQuestionOrFinish();
       }
     }
@@ -212,10 +204,7 @@ const handleNextQuestionOrFinish = async () => {
   }, [navigate, roomId, playerId]);
 
   useEffect(() => {
-    // 【追加】現在のstatsを出力
-    console.log(`[useEffect] 現在のstats: ${roomData?.stats}`);
     if (roomData?.stats === "finished") {
-      console.log(`[useEffect] finishedを検知。リザルトへ遷移します`);
       isFinishingRef.current = true;
       navigate("/multiresult");
     }
