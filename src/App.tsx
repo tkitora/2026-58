@@ -1,4 +1,4 @@
-import { HomePage, MainPage, Single, SingleGame, Account, AuthCallback, Login, SingleGame_rank, SingleRank, TutorialGame } from './index';
+import { HomePage, MainPage, Single, SingleGame, Account, AuthCallback, Login, SingleGame_rank, SingleRank, TutorialGame, Shop } from './index';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -17,6 +17,7 @@ function App() {
             <Route path='/singlegame_rank' element={<SingleGame_rank />} />
             <Route path='/singlerank' element={<SingleRank />} />
             <Route path='/tutorial' element={<TutorialGame />} />
+            <Route path='/shop' element={<Shop />} />
           </Routes>
         </main>
       </Router>
