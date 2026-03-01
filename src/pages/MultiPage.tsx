@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase-oauth/supabase"; 
+import { supabase } from "../lib/supabase-oauth/supabase";
 import { Header } from "../index";
 
 function MultiPage() {
@@ -24,7 +24,7 @@ function MultiPage() {
     fetchSessionName();
   }, []);
 
-const handleJoin = async () => {
+  const handleJoin = async () => {
     if (!roomNameInput.trim()) {
       setErrorMsg("あいことばを入力してください。");
       return;
@@ -37,7 +37,7 @@ const handleJoin = async () => {
 
     try {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      
+
       // 1. 古い部屋と「古いゲストプレイヤー」の掃除
       await supabase.from("room").delete().lt("update_at", yesterday);
       await supabase.from("players").delete().eq("is_guest", true).lt("join_at", yesterday);
@@ -45,7 +45,7 @@ const handleJoin = async () => {
       // 2. ログイン状態の確認とID/フラグの決定
       const { data: authData } = await supabase.auth.getSession();
       const user = authData.session?.user;
-      
+
       // ログインしていれば固定ID、そうでなければランダムID
       const playerId = user ? user.id : crypto.randomUUID();
       const isGuest = !user;
@@ -124,57 +124,73 @@ const handleJoin = async () => {
   };
 
   return (
-    <div style={{ padding: 24 }} className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover">
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6 flex flex-col">
       <Header backTo="/mainpage" />
-      <div className="w-2/3 mx-auto bg-white/80 backdrop-blur border-2 border-black p-20 mt-10 rounded-xl shadow-sm">
-        <h1 className="text-6xl md:text-7xl font-bold text-center mb-12">
+
+      {/* Headerの下を中央寄せ（上寄せが良ければ items-center を消してOK） */}
+      <div className="flex-1 flex items-start sm:items-center justify-center">
+        <div className="w-full max-w-3xl mx-auto bg-white/80 backdrop-blur border-2 border-black rounded-xl shadow-sm p-5 sm:p-10 md:p-14 lg:p-20 mt-4 sm:mt-0">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-center mb-6 sm:mb-10 md:mb-12">
             {"ならげっさー！".split("").map((char, i) => (
-                <span
-                    key={i}
-                    className="inline-block animate-wave"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                >
-                    {char}
-                </span>
+              <span
+                key={i}
+                className="inline-block animate-wave"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
+                {char}
+              </span>
             ))}
-        </h1>
-        
-        <div className="flex flex-col items-center gap-6 w-full max-w-md mx-auto">
-          <div className="w-full">
-            <label className="block text-xl font-bold mb-2 text-gray-700">あいことばはなんですか？</label>
-            <input
-              type="text"
-              className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-amber-500"
-              value={roomNameInput}
-              onChange={(e) => setRoomNameInput(e.target.value)}
-              placeholder="あいことば"
-              maxLength={20}
-            />
+          </h1>
+
+          <div className="flex flex-col items-center gap-5 sm:gap-6 w-full max-w-md mx-auto">
+            <div className="w-full">
+              <label className="block text-base sm:text-xl font-bold mb-2 text-gray-700">
+                あいことばはなんですか？
+              </label>
+              <input
+                type="text"
+                className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-base sm:text-xl focus:outline-none focus:border-amber-500"
+                value={roomNameInput}
+                onChange={(e) => setRoomNameInput(e.target.value)}
+                placeholder="あいことば"
+                maxLength={20}
+              />
+            </div>
+
+            <div className="w-full">
+              <label className="block text-base sm:text-xl font-bold mb-2 text-gray-700">
+                おなまえはなんですか？
+              </label>
+              <input
+                type="text"
+                className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-base sm:text-xl focus:outline-none focus:border-amber-500"
+                value={playerNameInput}
+                onChange={(e) => setPlayerNameInput(e.target.value)}
+                placeholder="名無しのゲッサー"
+                maxLength={15}
+              />
+            </div>
+
+            {errorMsg && (
+              <p className="text-red-600 font-bold text-sm sm:text-base text-center">
+                {errorMsg}
+              </p>
+            )}
+
+            <button
+              onClick={handleJoin}
+              disabled={isLoading}
+              className={[
+                "w-full py-3 sm:py-4 mt-2 sm:mt-4 rounded-xl font-bold text-white transition",
+                "text-xl sm:text-2xl",
+                isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-amber-500 hover:bg-amber-600 active:scale-95 shadow-md",
+              ].join(" ")}
+            >
+              {isLoading ? "入室中..." : "OK！"}
+            </button>
           </div>
-
-          <div className="w-full">
-            <label className="block text-xl font-bold mb-2 text-gray-700">おなまえはなんですか？</label>
-            <input
-              type="text"
-              className="w-full border-2 border-gray-400 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-amber-500"
-              value={playerNameInput}
-              onChange={(e) => setPlayerNameInput(e.target.value)}
-              placeholder="名無しのゲッサー"
-              maxLength={15}
-            />
-          </div>
-
-          {errorMsg && <p className="text-red-600 font-bold">{errorMsg}</p>}
-
-          <button
-            onClick={handleJoin}
-            disabled={isLoading}
-            className={`w-full py-4 mt-4 rounded-xl text-2xl font-bold text-white transition ${
-              isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 active:scale-95 shadow-md"
-            }`}
-          >
-            {isLoading ? "入室中..." : "OK！"}
-          </button>
         </div>
       </div>
     </div>

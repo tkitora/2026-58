@@ -23,12 +23,6 @@ export function createStreetViewGame() {
     return new google.maps.LatLng(lat, lng);
   }
 
-  function randomLatLngInJapanBox() {
-    const lat = 24 + Math.random() * (46 - 24);
-    const lng = 123 + Math.random() * (146 - 123);
-    return new google.maps.LatLng(lat, lng);
-  }
-
   async function getPrefectureName(latLng: google.maps.LatLng): Promise<string | null> {
     const res = await geocoder.geocode({ location: latLng });
     const first = res.results?.[0];

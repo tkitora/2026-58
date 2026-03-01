@@ -201,91 +201,102 @@ function Account() {
   };
 
   return (
-    <div
-      style={{ padding: 24 }}
-      className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover"
-    >
-      <Header backTo="/mainpage"></Header>
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6">
+      <Header backTo="/mainpage" />
 
       {!session ? (
-        <div className="w-2/3 mx-auto bg-white/80 backdrop-blur border-b border-gray-200 p-20">
-          <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
-            <p className="text-xl ">未ログインです</p>
+        <div className="w-full max-w-4xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2 sm:px-6 py-4">
+            <p className="text-base sm:text-xl">未ログインです</p>
             <Link
               to="/login"
-              className="rounded-xl px-3 py-2 text-xl font-medium text-gray-700 hover:bg-gray-100 active:scale-75 hover:shadow-sm transition"
+              className="w-full sm:w-auto text-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium text-gray-700 hover:bg-gray-100 active:scale-95 hover:shadow-sm transition"
             >
               ログインへ
             </Link>
           </div>
         </div>
       ) : (
-        <div className="w-2/3 mx-auto bg-white/80 backdrop-blur border-b border-gray-200 p-20">
-          <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
+        <div className="w-full max-w-5xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
+          {/* スマホは縦積み、md以上で3カラム */}
+          <div className="flex flex-col md:flex-row mx-auto max-w-5xl md:items-center md:justify-between gap-8 px-2 sm:px-6 py-4">
             {/* 左：アイコンとメール */}
-            <div className="relative flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <img
-                  className="border-2 border-black rounded-xl w-24 h-24 object-cover bg-white"
-                  src={avatarUrl || "/src/assets/default-avatar.png"}
-                  alt="avatar"
-                />
-
-                <div className="flex flex-col gap-2">
-                  <button
-                    className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-75 transition shadow-sm hover:shadow-lg"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={saving || cooldown > 0}
-                  >
-                    {cooldown > 0 ? `あと ${cooldown} 秒` : "アイコン変更"}
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={onFileChange}
+            <div className="w-full md:w-[34%]">
+              <div className="relative flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    className="border-2 border-black rounded-xl w-16 h-16 sm:w-24 sm:h-24 object-cover bg-white shrink-0"
+                    src={avatarUrl || "/src/assets/default-avatar.png"}
+                    alt="avatar"
                   />
 
-                  <p className="text-sm text-gray-600">{session.user.email}</p>
-                </div>
-              </div>
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <button
+                      className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={saving || cooldown > 0}
+                    >
+                      {cooldown > 0 ? `あと ${cooldown} 秒` : "アイコン変更"}
+                    </button>
 
-              {loadingProfile && <p className="text-sm text-gray-600">プロフィール読込中...</p>}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onFileChange}
+                    />
+
+                    <p className="text-xs sm:text-sm text-gray-600 break-all">
+                      {session.user.email}
+                    </p>
+                  </div>
+                </div>
+
+                {loadingProfile && (
+                  <p className="text-xs sm:text-sm text-gray-600">プロフィール読込中...</p>
+                )}
+              </div>
             </div>
 
             {/* 中：名前変更 */}
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-xl">現在のユーザー名: {renderName()}</p>
+            <div className="w-full md:w-[44%]">
+              <div className="flex flex-col items-start md:items-center gap-3">
+                <p className="text-base sm:text-xl">
+                  現在のユーザー名: {renderName()}
+                </p>
 
-              <div className="flex items-center gap-2">
-                <input
-                  className="border border-gray-300 rounded px-3 py-2"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="名前を入力"
-                />
+                {/* スマホは縦、sm以上で横 */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:justify-center">
+                  <input
+                    className="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto sm:min-w-[220px]"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="名前を入力"
+                  />
 
-                <button
-                  className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-75 transition shadow-sm hover:shadow-lg"
-                  onClick={saveName}
-                  disabled={saving || cooldown > 0}
-                >
-                  {cooldown > 0 ? `あと ${cooldown} 秒` : saving ? "保存中..." : "変更"}
-                </button>
+                  <button
+                    className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg w-full sm:w-auto"
+                    onClick={saveName}
+                    disabled={saving || cooldown > 0}
+                  >
+                    {cooldown > 0 ? `あと ${cooldown} 秒` : saving ? "保存中..." : "変更"}
+                  </button>
+                </div>
+
+                {errorText && <p className="text-red-600 text-sm">{errorText}</p>}
               </div>
-
-              {errorText && <p className="text-red-600 text-sm">{errorText}</p>}
             </div>
 
             {/* 右：ログアウト */}
-            <button
-              className="inline-flex items-center rounded-xl px-4 py-2 text-xl font-medium bg-gray-800 text-white hover:bg-gray-900 active:scale-75 transition shadow-sm hover:shadow-lg"
-              onClick={logout}
-            >
-              ログアウト
-            </button>
+            <div className="w-full md:w-[22%] md:flex md:justify-end">
+              <button
+                className="w-full md:w-auto inline-flex justify-center items-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium bg-gray-800 text-white hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
+                onClick={logout}
+              >
+                ログアウト
+              </button>
+            </div>
           </div>
         </div>
       )}
