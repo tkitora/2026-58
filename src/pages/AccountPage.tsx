@@ -1,8 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase-oauth/supabase";
 import type { Session } from "@supabase/supabase-js";
 import { Link } from "react-router-dom";
 import { Header } from "../index";
+
+type ShopItem = {
+  id: string;
+  type: string;
+  name: string;
+  price: number;
+  created_at?: string;
+};
+
+type CosmetickRow = {
+  id: string;
+  nowcosme: string | null;
+  runcosme: string[] | null;
+  buyed: string[] | null;
+};
 
 function Account() {
   const [session, setSession] = useState<Session | null>(null);
@@ -10,7 +25,7 @@ function Account() {
   const [nameInput, setNameInput] = useState<string>("");
   const [profileName, setProfileName] = useState<string>("");
 
-  // 追加：DBのアバターURL
+  // DBのアバターURL
   const [avatarUrl, setAvatarUrl] = useState<string>("");
 
   // UI用（DB側制限が本命だけど、UXとして残してOK）
@@ -22,6 +37,22 @@ function Account() {
 
   // ファイル input を押すため（任意）
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // -----------------------------
+  // 追加：デコレーション編集関連
+  // -----------------------------
+  const [tab, setTab] = useState<"icon" | "run">("icon");
+  const [items, setItems] = useState<ShopItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const [cosmetick, setCosmetick] = useState<CosmetickRow | null>(null);
+  const [loadingCosmetick, setLoadingCosmetick] = useState(false);
+
+  const [decoSaving, setDecoSaving] = useState(false);
+  const [decoInfo, setDecoInfo] = useState<string | null>(null);
+  const [decoError, setDecoError] = useState<string | null>(null);
+
+  const userId = session?.user?.id ?? null;
 
   // セッション取得 + 監視
   useEffect(() => {
@@ -140,13 +171,11 @@ function Account() {
       const path = `${session.user.id}/${crypto.randomUUID()}.${ext}`;
 
       // 2) Storageへアップロード（public bucket: images）
-      const { error: uploadError } = await supabase.storage
-        .from("images")
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type || undefined,
-        });
+      const { error: uploadError } = await supabase.storage.from("images").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || undefined,
+      });
 
       if (uploadError) throw uploadError;
 
@@ -200,106 +229,412 @@ function Account() {
     await supabase.auth.signOut();
   };
 
+  // -----------------------------
+  // 追加：shopitems & cosmetick 読み込み
+  // -----------------------------
+  useEffect(() => {
+    const fetchItems = async () => {
+      setLoadingItems(true);
+      const { data, error } = await supabase
+        .from("shopitems")
+        .select("id,type,name,price,created_at")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("fetch shopitems error:", error);
+        setDecoError("ショップアイテムの取得に失敗しました。");
+        setItems([]);
+      } else {
+        setItems((data ?? []) as ShopItem[]);
+      }
+      setLoadingItems(false);
+    };
+
+    fetchItems();
+  }, []);
+
+  useEffect(() => {
+    const fetchCosmetick = async () => {
+      if (!userId) return;
+
+      setLoadingCosmetick(true);
+      setDecoError(null);
+      setDecoInfo(null);
+
+      const { data, error } = await supabase
+        .from("cosmetick")
+        .select("id, nowcosme, runcosme, buyed")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("fetch cosmetick error:", error);
+        setCosmetick(null);
+        setDecoError("デコレーション情報の取得に失敗しました。");
+        setLoadingCosmetick(false);
+        return;
+      }
+
+      if (!data) {
+        // 初回は作成
+        const { data: ins, error: insErr } = await supabase
+          .from("cosmetick")
+          .insert({ id: userId, nowcosme: null, runcosme: [], buyed: [] })
+          .select("id, nowcosme, runcosme, buyed")
+          .single();
+
+        if (insErr) {
+          console.error("insert cosmetick error:", insErr);
+          setCosmetick(null);
+          setDecoError("デコレーション情報の初期作成に失敗しました。");
+        } else {
+          setCosmetick(ins as CosmetickRow);
+        }
+      } else {
+        setCosmetick(data as CosmetickRow);
+      }
+
+      setLoadingCosmetick(false);
+    };
+
+    fetchCosmetick();
+  }, [userId]);
+
+  const buyedSet = useMemo(() => new Set(cosmetick?.buyed ?? []), [cosmetick?.buyed]);
+  const runSet = useMemo(() => new Set(cosmetick?.runcosme ?? []), [cosmetick?.runcosme]);
+
+  const ownedIconItems = useMemo(() => {
+    return items.filter((it) => it.type === "icon" && buyedSet.has(it.id));
+  }, [items, buyedSet]);
+
+  const ownedRunItems = useMemo(() => {
+    return items.filter((it) => it.type === "run" && buyedSet.has(it.id));
+  }, [items, buyedSet]);
+
+  const selectNowCosme = async (itemId: string) => {
+    if (!userId) return;
+    if (!cosmetick) return;
+
+    setDecoSaving(true);
+    setDecoError(null);
+    setDecoInfo(null);
+
+    try {
+      if (!buyedSet.has(itemId)) {
+        setDecoError("未購入のアイテムは設定できません。");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("cosmetick")
+        .update({ nowcosme: itemId })
+        .eq("id", userId)
+        .select("id, nowcosme, runcosme, buyed")
+        .single();
+
+      if (error) throw error;
+
+      setCosmetick(data as CosmetickRow);
+      setDecoInfo("アイコンを変更しました。");
+    } catch (e: any) {
+      console.error("selectNowCosme error:", e);
+      setDecoError("アイコンの変更に失敗しました。");
+    } finally {
+      setDecoSaving(false);
+    }
+  };
+
+  const toggleRunCosme = async (itemId: string) => {
+    if (!userId) return;
+    if (!cosmetick) return;
+
+    setDecoSaving(true);
+    setDecoError(null);
+    setDecoInfo(null);
+
+    try {
+      if (!buyedSet.has(itemId)) {
+        setDecoError("未購入のアイテムは設定できません。");
+        return;
+      }
+
+      const current = cosmetick.runcosme ?? [];
+      const exists = current.includes(itemId);
+      const next = exists ? current.filter((x) => x !== itemId) : [...current, itemId];
+
+      const { data, error } = await supabase
+        .from("cosmetick")
+        .update({ runcosme: next })
+        .eq("id", userId)
+        .select("id, nowcosme, runcosme, buyed")
+        .single();
+
+      if (error) throw error;
+
+      setCosmetick(data as CosmetickRow);
+      setDecoInfo(exists ? "マスコットを外しました。" : "マスコットを追加しました。");
+    } catch (e: any) {
+      console.error("toggleRunCosme error:", e);
+      setDecoError("マスコットの変更に失敗しました。");
+    } finally {
+      setDecoSaving(false);
+    }
+  };
+
+  // -----------------------------
+  // 追加：デコパネル（ログイン時のみ表示）
+  // -----------------------------
+  const DecoPanel = () => {
+    if (!session) return null;
+
+    const isBusy = loadingItems || loadingCosmetick || decoSaving;
+
+    const tabBtn = (key: "icon" | "run", label: string) => {
+      const active = tab === key;
+      return (
+        <button
+          onClick={() => setTab(key)}
+          className={
+            "rounded-xl px-4 py-2 text-base sm:text-lg font-medium transition shadow-sm " +
+            (active
+              ? "bg-gray-900 text-white"
+              : "bg-white/70 text-gray-700 hover:bg-gray-100 active:scale-95")
+          }
+        >
+          {label}
+        </button>
+      );
+    };
+
+    const Card = ({
+      item,
+      active,
+      badgeText,
+      onClick,
+    }: {
+      item: ShopItem;
+      active: boolean;
+      badgeText: string | null;
+      onClick: () => void;
+    }) => {
+      const cardClass =
+        "rounded-2xl border p-4 shadow-sm transition hover:shadow-lg hover:-translate-y-0.5 text-left w-full " +
+        (active ? "border-yellow-500 bg-yellow-50/70" : "border-gray-200 bg-white/70");
+
+      return (
+        <button type="button" onClick={onClick} className={cardClass}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-base sm:text-lg font-semibold break-words">{item.name}</p>
+                {badgeText && (
+                  <span className="text-xs px-2 py-1 rounded bg-yellow-200 text-yellow-900 font-semibold">
+                    {badgeText}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-gray-700">type: {item.type}</p>
+            </div>
+
+            <div className="text-right shrink-0">
+              <p className="text-xs sm:text-sm text-gray-700">
+                price: <span className="font-bold">{item.price}</span>
+              </p>
+              <p className="text-[11px] sm:text-xs text-gray-500">クリックで変更</p>
+            </div>
+          </div>
+        </button>
+      );
+    };
+
+    const now = cosmetick?.nowcosme ?? null;
+
+    return (
+      <div className="w-full max-w-5xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16 mt-6">
+        <div className="mx-auto max-w-5xl px-2 sm:px-6 py-4 flex flex-col gap-5">
+          <div className="flex items-start sm:items-center justify-between gap-4">
+            <p className="text-xl sm:text-2xl font-semibold">デコレーション</p>
+
+            <div className="text-right">
+              {isBusy && <p className="text-xs sm:text-sm text-gray-600">読込中...</p>}
+              {decoInfo && <p className="text-xs sm:text-sm text-green-700">{decoInfo}</p>}
+              {decoError && <p className="text-xs sm:text-sm text-red-600">{decoError}</p>}
+            </div>
+          </div>
+
+          {/* タブ */}
+          <div className="flex items-center gap-3">
+            {tabBtn("icon", "アイコン")}
+            {tabBtn("run", "マスコット")}
+          </div>
+
+          {/* コンテンツ */}
+          {tab === "icon" ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs sm:text-sm text-gray-700">
+                購入済みの <span className="font-semibold">icon</span> アイテムから選択できます。
+              </p>
+
+              {ownedIconItems.length === 0 ? (
+                <p className="text-gray-700">購入済みのアイコンアイテムがありません。</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {ownedIconItems.map((it) => (
+                    <Card
+                      key={it.id}
+                      item={it}
+                      active={now === it.id}
+                      badgeText={now === it.id ? "使用中" : null}
+                      onClick={() => {
+                        if (decoSaving) return;
+                        selectNowCosme(it.id);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs sm:text-sm text-gray-700">
+                購入済みの <span className="font-semibold">run</span> アイテムを追加/削除できます。
+              </p>
+
+              {ownedRunItems.length === 0 ? (
+                <p className="text-gray-700">購入済みのマスコットアイテムがありません。</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {ownedRunItems.map((it) => {
+                    const usingNow = runSet.has(it.id);
+                    return (
+                      <Card
+                        key={it.id}
+                        item={it}
+                        active={usingNow}
+                        badgeText={usingNow ? "使用中" : null}
+                        onClick={() => {
+                          if (decoSaving) return;
+                          toggleRunCosme(it.id);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6">
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover py-6">
+      {/* Headerはpaddingを自前で持ってるので、親では横paddingを付けない */}
       <Header backTo="/mainpage" />
 
-      {!session ? (
-        <div className="w-full max-w-4xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2 sm:px-6 py-4">
-            <p className="text-base sm:text-xl">未ログインです</p>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto text-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium text-gray-700 hover:bg-gray-100 active:scale-95 hover:shadow-sm transition"
-            >
-              ログインへ
-            </Link>
+      {/* Header以外のコンテンツだけ横padding */}
+      <div className="px-3 sm:px-6">
+        {!session ? (
+          <div className="w-full max-w-4xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2 sm:px-6 py-4">
+              <p className="text-base sm:text-xl">未ログインです</p>
+              <Link
+                to="/login"
+                className="w-full sm:w-auto text-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium text-gray-700 hover:bg-gray-100 active:scale-95 hover:shadow-sm transition"
+              >
+                ログインへ
+              </Link>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="w-full max-w-5xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
-          {/* スマホは縦積み、md以上で3カラム */}
-          <div className="flex flex-col md:flex-row mx-auto max-w-5xl md:items-center md:justify-between gap-8 px-2 sm:px-6 py-4">
-            {/* 左：アイコンとメール */}
-            <div className="w-full md:w-[34%]">
-              <div className="relative flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <img
-                    className="border-2 border-black rounded-xl w-16 h-16 sm:w-24 sm:h-24 object-cover bg-white shrink-0"
-                    src={avatarUrl || "/src/assets/default-avatar.png"}
-                    alt="avatar"
-                  />
+        ) : (
+          <>
+            <div className="w-full max-w-5xl mx-auto bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-5 sm:p-10 md:p-14 lg:p-16">
+              {/* スマホは縦積み、md以上で3カラム */}
+              <div className="flex flex-col md:flex-row mx-auto max-w-5xl md:items-center md:justify-between gap-8 px-2 sm:px-6 py-4">
+                {/* 左：アイコンとメール */}
+                <div className="w-full md:w-[34%]">
+                  <div className="relative flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        className="border-2 border-black rounded-xl w-16 h-16 sm:w-24 sm:h-24 object-cover bg-white shrink-0"
+                        src={avatarUrl || "/src/assets/default-avatar.png"}
+                        alt="avatar"
+                      />
 
-                  <div className="flex flex-col gap-2 min-w-0">
-                    <button
-                      className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={saving || cooldown > 0}
-                    >
-                      {cooldown > 0 ? `あと ${cooldown} 秒` : "アイコン変更"}
-                    </button>
+                      <div className="flex flex-col gap-2 min-w-0">
+                        <button
+                          className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={saving || cooldown > 0}
+                        >
+                          {cooldown > 0 ? `あと ${cooldown} 秒` : "アイコン変更"}
+                        </button>
 
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={onFileChange}
-                    />
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={onFileChange}
+                        />
 
-                    <p className="text-xs sm:text-sm text-gray-600 break-all">
-                      {session.user.email}
-                    </p>
+                        <p className="text-xs sm:text-sm text-gray-600 break-all">
+                          {session.user.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {loadingProfile && (
+                      <p className="text-xs sm:text-sm text-gray-600">プロフィール読込中...</p>
+                    )}
                   </div>
                 </div>
 
-                {loadingProfile && (
-                  <p className="text-xs sm:text-sm text-gray-600">プロフィール読込中...</p>
-                )}
-              </div>
-            </div>
+                {/* 中：名前変更 */}
+                <div className="w-full md:w-[44%]">
+                  <div className="flex flex-col items-start md:items-center gap-3">
+                    <p className="text-base sm:text-xl">現在のユーザー名: {renderName()}</p>
 
-            {/* 中：名前変更 */}
-            <div className="w-full md:w-[44%]">
-              <div className="flex flex-col items-start md:items-center gap-3">
-                <p className="text-base sm:text-xl">
-                  現在のユーザー名: {renderName()}
-                </p>
+                    {/* スマホは縦、sm以上で横 */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:justify-center">
+                      <input
+                        className="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto sm:min-w-[220px]"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="名前を入力"
+                      />
 
-                {/* スマホは縦、sm以上で横 */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:justify-center">
-                  <input
-                    className="border border-gray-300 rounded px-3 py-2 w-full sm:w-auto sm:min-w-[220px]"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="名前を入力"
-                  />
+                      <button
+                        className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg w-full sm:w-auto"
+                        onClick={saveName}
+                        disabled={saving || cooldown > 0}
+                      >
+                        {cooldown > 0 ? `あと ${cooldown} 秒` : saving ? "保存中..." : "変更"}
+                      </button>
+                    </div>
 
-                  <button
-                    className="rounded px-4 py-2 bg-gray-800 text-white disabled:opacity-50 hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg w-full sm:w-auto"
-                    onClick={saveName}
-                    disabled={saving || cooldown > 0}
-                  >
-                    {cooldown > 0 ? `あと ${cooldown} 秒` : saving ? "保存中..." : "変更"}
-                  </button>
+                    {errorText && <p className="text-red-600 text-sm">{errorText}</p>}
+                  </div>
                 </div>
 
-                {errorText && <p className="text-red-600 text-sm">{errorText}</p>}
+                {/* 右：ログアウト */}
+                <div className="w-full md:w-[22%] md:flex md:justify-end">
+                  <button
+                    className="w-full md:w-auto inline-flex justify-center items-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium bg-gray-800 text-white hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
+                    onClick={logout}
+                  >
+                    ログアウト
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* 右：ログアウト */}
-            <div className="w-full md:w-[22%] md:flex md:justify-end">
-              <button
-                className="w-full md:w-auto inline-flex justify-center items-center rounded-xl px-4 py-3 text-base sm:text-xl font-medium bg-gray-800 text-white hover:bg-gray-900 active:scale-95 transition shadow-sm hover:shadow-lg"
-                onClick={logout}
-              >
-                ログアウト
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            {/* 追加：デコレーション編集エリア */}
+            <DecoPanel />
+          </>
+        )}
+      </div>
     </div>
   );
 }
