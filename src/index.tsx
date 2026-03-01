@@ -9,4 +9,8 @@ export { default as SingleGame_rank } from './pages/SingleGame_rank';
 export { default as SingleRank } from './pages/SingleRank'
 export { default as TutorialGame } from './pages/TutorialGame';
 export { default as Header } from './components/Header';
+export { default as MultiPage } from './pages/MultiPage';
+export { default as MultiRoom } from './pages/MultiRoom';
+export { default as MultiGame } from './pages/MultiGame';
+export { default as MultiResult } from './pages/MultiResult';
 
