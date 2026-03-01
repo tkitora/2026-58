@@ -111,70 +111,80 @@ function SingleRank() {
   };
 
   return (
-    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
-      <div className="w-2/3 mx-auto rounded-xl border-2 border-black bg-white/80 backdrop-blur p-2">
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover py-6 px-3 sm:px-6">
+      {/* 外枠：w-2/3 をやめて max-w で統一 */}
+      <div className="w-full max-w-5xl mx-auto rounded-xl border-2 border-black bg-white/80 backdrop-blur p-3 sm:p-4">
         <Header backTo="/mainpage" />
 
-        <h1 className="text-3xl font-bold text-center py-4">🏆 ランキング 🏆</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-center py-4">🏆 ランキング 🏆</h1>
 
         {isLoading ? (
-          <div className="text-center text-lg mt-12">読み込み中...</div>
+          <div className="text-center text-base sm:text-lg mt-10 sm:mt-12">読み込み中...</div>
         ) : (
           <>
-            {/* ランキング表 */}
+            {/* テーブル：スマホは横スクロール可にする */}
             <div className="bg-white rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.1)] overflow-hidden">
-              <table className="w-full border-collapse text-center">
-                <thead className="bg-amber-500 text-white">
-                  <tr>
-                    <th className="py-4 px-4 w-[45%] text-lg">プレイヤー名</th>
-                    <th className="py-4 px-4 w-[25%] text-lg">スコア</th>
-                    <th className="py-4 px-4 w-[30%] text-lg">達成日時</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {currentItems.length > 0 ? (
-                    currentItems.map((item, index) => (
-                      <tr
-                        key={item.id}
-                        className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
-                      >
-                        <td className="py-4 px-4 font-bold text-gray-600 text-lg">
-                          <div className="flex items-center gap-3">
-                            {/* アイコンは固定サイズ */}
-                            <img
-                              src={iconForRow(item)}
-                              alt="icon"
-                              className="w-10 h-10 rounded-full border border-gray-300 object-cover bg-white flex-none"
-                            />
-
-                            {/* 名前ははみ出したら省略 */}
-                            <span className="block w-full min-w-0 truncate text-left">
-                              {item.player_name}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="py-4 px-4 font-bold text-pink-600 text-lg">
-                          {item.score}問 / 20問
-                        </td>
-                        <td className="py-4 px-4 text-sm text-gray-500">{formatDate(item.created_at)}</td>
-                      </tr>
-                    ))
-                  ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse text-center">
+                  <thead className="bg-amber-500 text-white">
                     <tr>
-                      <td colSpan={3} className="py-8 px-4 text-gray-500 text-lg">
-                        まだデータがありません。一番乗りを目指そう！
-                      </td>
+                      <th className="py-3 sm:py-4 px-3 sm:px-4 w-[45%] text-base sm:text-lg">
+                        プレイヤー名
+                      </th>
+                      <th className="py-3 sm:py-4 px-3 sm:px-4 w-[25%] text-base sm:text-lg">
+                        スコア
+                      </th>
+                      <th className="py-3 sm:py-4 px-3 sm:px-4 w-[30%] text-base sm:text-lg">
+                        達成日時
+                      </th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {currentItems.length > 0 ? (
+                      currentItems.map((item, index) => (
+                        <tr
+                          key={item.id}
+                          className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                        >
+                          <td className="py-3 sm:py-4 px-3 sm:px-4 font-bold text-gray-600 text-base sm:text-lg">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={iconForRow(item)}
+                                alt="icon"
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-300 object-cover bg-white flex-none"
+                              />
+                              <span className="block w-full min-w-0 truncate text-left">
+                                {item.player_name}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-3 sm:py-4 px-3 sm:px-4 font-bold text-pink-600 text-base sm:text-lg">
+                            {item.score}問 / 20問
+                          </td>
+
+                          <td className="py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                            {formatDate(item.created_at)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="py-8 px-4 text-gray-500 text-base sm:text-lg">
+                          まだデータがありません。一番乗りを目指そう！
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* ページネーション */}
+            {/* ページネーション：スマホで折り返し */}
             {totalPages > 1 && (
-              <div className="flex justify-center gap-2 mt-5">
+              <div className="flex flex-wrap justify-center gap-2 mt-5">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
                   const isActive = currentPage === pageNum;
                   return (
@@ -182,7 +192,7 @@ function SingleRank() {
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
                       className={[
-                        "px-4 py-2 rounded-md border font-bold transition",
+                        "px-3 sm:px-4 py-2 rounded-md border font-bold transition text-sm sm:text-base",
                         isActive
                           ? "bg-amber-500 text-white border-amber-500"
                           : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100",

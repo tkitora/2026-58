@@ -124,12 +124,14 @@ function MultiPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6 flex flex-col">
-      <Header backTo="/mainpage" />
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6">
+      {/* ★共通幅の白枠コンテナ */}
+      <div className="w-full max-w-3xl mx-auto">
+        {/* Headerもこの幅の中に入る */}
+        <Header backTo="/mainpage" />
 
-      {/* Headerの下を中央寄せ（上寄せが良ければ items-center を消してOK） */}
-      <div className="flex-1 flex items-start sm:items-center justify-center">
-        <div className="w-full max-w-3xl mx-auto bg-white/80 backdrop-blur border-2 border-black rounded-xl shadow-sm p-5 sm:p-10 md:p-14 lg:p-20 mt-4 sm:mt-0">
+        {/* メイン（Headerと同じ横幅になる） */}
+        <div className="bg-white/80 backdrop-blur border-2 border-black rounded-xl shadow-sm p-5 sm:p-10 md:p-14 lg:p-20 mt-4">
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-center mb-6 sm:mb-10 md:mb-12">
             {"ならげっさー！".split("").map((char, i) => (
               <span

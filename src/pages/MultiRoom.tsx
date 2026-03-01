@@ -155,86 +155,89 @@ function MultiRoom() {
 
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover py-6 px-3 sm:px-6">
-      <Header backTo="/multi" />
+      {/* ★共通幅（ここが基準） */}
+      <div className="w-full max-w-4xl mx-auto">
+        <Header backTo="/multi" />
 
-      <div className="w-full max-w-4xl mx-auto mt-4 sm:mt-10 bg-white/80 backdrop-blur border-2 border-black rounded-xl p-5 sm:p-8 md:p-10 shadow-sm flex flex-col md:flex-row gap-6 md:gap-10">
-        {/* 左：参加者 */}
-        <div className="flex-1 min-w-0">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-            あいことば: <span className="text-amber-600 break-all">{roomName}</span>
-          </h2>
-          <p className="text-gray-600 mb-5 sm:mb-6 border-b border-gray-300 pb-2">
-            参加者 {players.length} 人
-          </p>
+        <div className="mt-4 sm:mt-10 bg-white/80 backdrop-blur border-2 border-black rounded-xl p-5 sm:p-8 md:p-10 shadow-sm flex flex-col md:flex-row gap-6 md:gap-10">
+          {/* 左：参加者 */}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+              あいことば: <span className="text-amber-600 break-all">{roomName}</span>
+            </h2>
+            <p className="text-gray-600 mb-5 sm:mb-6 border-b border-gray-300 pb-2">
+              参加者 {players.length} 人
+            </p>
 
-          <ul className="space-y-3">
-            {players.map((p) => (
-              <li
-                key={p.playerid}
-                className="text-base sm:text-xl font-bold px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm flex items-center gap-3 min-w-0"
-              >
-                <span className="text-2xl shrink-0">👤</span>
-                <span className="min-w-0 break-words">{p.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* 右：設定 or 待機 */}
-        <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-xl p-5 sm:p-6 md:p-8 flex flex-col justify-center">
-          {isHost ? (
-            <div className="flex flex-col gap-5 sm:gap-6">
-              <h3 className="text-xl sm:text-2xl font-bold text-center border-b border-gray-300 pb-3">
-                ルーム設定
-              </h3>
-
-              <div>
-                <label className="block text-base sm:text-lg font-bold mb-2 text-gray-700">
-                  問題数
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  className="w-full border-2 border-gray-400 rounded-lg px-4 py-2 text-base sm:text-xl"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                />
-              </div>
-
-              <div>
-                <label className="block text-base sm:text-lg font-bold mb-2 text-gray-700">
-                  制限時間
-                </label>
-                <select
-                  className="w-full border-2 border-gray-400 rounded-lg px-4 py-2 text-base sm:text-xl"
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(Number(e.target.value))}
+            <ul className="space-y-3">
+              {players.map((p) => (
+                <li
+                  key={p.playerid}
+                  className="text-base sm:text-xl font-bold px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm flex items-center gap-3 min-w-0"
                 >
-                  <option value={10}>10秒</option>
-                  <option value={15}>15秒</option>
-                  <option value={20}>20秒</option>
-                  <option value={30}>30秒</option>
-                </select>
-              </div>
+                  <span className="text-2xl shrink-0">👤</span>
+                  <span className="min-w-0 break-words">{p.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-              <button
-                onClick={handleStartGame}
-                className="w-full py-3 sm:py-4 mt-2 sm:mt-4 rounded-xl text-xl sm:text-2xl font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 shadow-md transition"
-              >
-                ゲームを開始する！
-              </button>
-            </div>
-          ) : (
-            <div className="text-center">
-              <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 animate-pulse">⏳</div>
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-700">
-                ホストがゲームを開始するのを
-                <br />
-                待っています...
-              </h3>
-            </div>
-          )}
+          {/* 右：設定 or 待機 */}
+          <div className="flex-1 bg-gray-50 border-2 border-gray-300 rounded-xl p-5 sm:p-6 md:p-8 flex flex-col justify-center">
+            {isHost ? (
+              <div className="flex flex-col gap-5 sm:gap-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-center border-b border-gray-300 pb-3">
+                  ルーム設定
+                </h3>
+
+                <div>
+                  <label className="block text-base sm:text-lg font-bold mb-2 text-gray-700">
+                    問題数
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    className="w-full border-2 border-gray-400 rounded-lg px-4 py-2 text-base sm:text-xl"
+                    value={amount}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-base sm:text-lg font-bold mb-2 text-gray-700">
+                    制限時間
+                  </label>
+                  <select
+                    className="w-full border-2 border-gray-400 rounded-lg px-4 py-2 text-base sm:text-xl"
+                    value={timeLimit}
+                    onChange={(e) => setTimeLimit(Number(e.target.value))}
+                  >
+                    <option value={10}>10秒</option>
+                    <option value={15}>15秒</option>
+                    <option value={20}>20秒</option>
+                    <option value={30}>30秒</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleStartGame}
+                  className="w-full py-3 sm:py-4 mt-2 sm:mt-4 rounded-xl text-xl sm:text-2xl font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 shadow-md transition"
+                >
+                  ゲームを開始する！
+                </button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 animate-pulse">⏳</div>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-700">
+                  ホストがゲームを開始するのを
+                  <br />
+                  待っています...
+                </h3>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
