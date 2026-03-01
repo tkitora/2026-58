@@ -11,7 +11,7 @@ const TUTORIAL_STEPS = [
     heading: 277.9857445300277,
     pitch: 6.823334801899023,
     zoom: 1,
-    getHint: (userSays: Answers) =>
+    getHint: () =>
       "残念！ですが、鹿が歩いていたり、歴史的な雰囲気があるこの景色…特徴的な場所と言えば…？",
     explanation:
       "ここは奈良県。鹿や古いお寺が見えたら、『なら！』を選びましょう。",
@@ -22,7 +22,7 @@ const TUTORIAL_STEPS = [
     heading: 148.19,
     pitch: -17.310000000000002,
     zoom: 1,
-    getHint: (userSays: Answers) =>
+    getHint: () =>
       "残念！ですが、有名なビールの看板や、縦信号、長く続く十字の道路。そして、書かれている文字を見ると…？",
     explanation:
       "ここは北海道。どこまでも続くような道や、北国特有の標識が見えたら『どう！』を選びましょう。",
