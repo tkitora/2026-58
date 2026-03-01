@@ -1,6 +1,5 @@
 // src/pages/SingleRank.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Header } from "../index";
 import defaultIcon from "/src/assets/default_icon.png";
