@@ -22,7 +22,6 @@ type PublicProfile = {
 const ITEMS_PER_PAGE = 20; // 1ページあたりの表示件数
 
 function SingleRank() {
-  const navigate = useNavigate();
   const [rankings, setRankings] = useState<RankData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);

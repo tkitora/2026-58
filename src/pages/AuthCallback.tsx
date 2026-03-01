@@ -79,13 +79,18 @@ export default function AuthCallback() {
   }, [navigate]);
 
   return (
-    <div
-      style={{ padding: 24 }}
-      className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover"
-    >
-      <div className="w-full bg-white/80 backdrop-blur border-b border-gray-200 p-20">
-        <div className="flex mx-auto max-w-5xl items-center justify-between px-6 py-4">
-          Signing in...
+    <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-cover px-3 sm:px-6 py-6 flex items-center justify-center">
+      <div className="w-full max-w-2xl bg-white/80 backdrop-blur border-b border-gray-200 rounded-2xl p-6 sm:p-12 md:p-16 text-center shadow-md">
+
+        <div className="flex flex-col items-center justify-center gap-4">
+
+          {/* ローディングアニメーション */}
+          <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+
+          <p className="text-lg sm:text-xl font-medium text-gray-700">
+            Signing in...
+          </p>
+
         </div>
       </div>
     </div>

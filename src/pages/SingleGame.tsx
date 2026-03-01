@@ -180,18 +180,6 @@ function SingleGame() {
     return earnedTitles;
   }
 
-  const btnStyle = {
-    width: "120px", // ここでボタンの横幅を固定
-    padding: "10px 0",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    backgroundColor: "#f9f9f9",
-    cursor: "pointer",
-    fontSize: "1rem",
-    fontWeight: "bold",
-    textAlign: "center" as const // 文字を中央揃えに
-  };
-
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
       <div className="border-2 rounded-xl border-black bg-white/80 backdrop-blur p-4 w-[95%] sm:w-4/5 md:w-2/3 max-w-5xl mx-auto">

@@ -132,18 +132,6 @@ function TutorialGame() {
     navigate("/mainpage");
   };
 
-  // ※残しててもOK（処理ではない）だが、見た目は className で揃える
-  const btnStyle = {
-    width: "120px",
-    padding: "10px 0",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    backgroundColor: "#f9f9f9",
-    cursor: "pointer",
-    fontSize: "1rem",
-    fontWeight: "bold",
-    textAlign: "center" as const,
-  };
 
   return (
     <div className="min-h-screen bg-[url('/src/assets/bg.png')] bg-no-repeat bg-center bg-auto md:bg-cover py-6 px-5">
