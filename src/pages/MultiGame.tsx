@@ -33,24 +33,44 @@ export default function MultiGame() {
   const [answeredPlayersCount, setAnsweredPlayersCount] = useState(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  // ★追加：fetchingでStreetViewが来ない端末の自動スキップ用
+  const [panoLoadFailed, setPanoLoadFailed] = useState(false);
+  const isFetchTimeoutHandledRef = useRef(false);
+  const myAnswersRef = useRef<number[]>([]);
+  useEffect(() => {
+    myAnswersRef.current = myAnswers;
+  }, [myAnswers]);
+
   const isHostRef = useRef(false);
   const nowQuestionRef = useRef(1);
   const phaseRef = useRef<GamePhase>("fetching");
   const isFinishingRef = useRef(false);
   const isTimeoutHandledRef = useRef(false);
 
-  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
-  useEffect(() => { nowQuestionRef.current = nowQuestion; }, [nowQuestion]);
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
+  useEffect(() => {
+    nowQuestionRef.current = nowQuestion;
+  }, [nowQuestion]);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  // 問題が変わったらタイムアウト系フラグをリセット
   useEffect(() => {
     isTimeoutHandledRef.current = false;
+    isFetchTimeoutHandledRef.current = false; // ★追加
+    setPanoLoadFailed(false); // ★追加
   }, [nowQuestion]);
 
   const handleNextQuestionOrFinish = async () => {
     if (!roomId) return;
-    const { data: currentRoom } = await supabase.from("room").select("now, amount").eq("roomid", roomId).single();
-
-    // 【追加】取得した部屋の状態を出力
+    const { data: currentRoom } = await supabase
+      .from("room")
+      .select("now, amount")
+      .eq("roomid", roomId)
+      .single();
 
     // 文字列で返ってくる可能性も考慮し Number() で比較
     if (currentRoom && Number(currentRoom.now) === Number(nowQuestionRef.current)) {
@@ -58,7 +78,10 @@ export default function MultiGame() {
         const { error } = await supabase.from("room").update({ stats: "finished" }).eq("roomid", roomId);
         if (error) console.error("DB更新エラー:", error);
       } else {
-        await supabase.from("room").update({ now: Number(currentRoom.now) + 1, pano: null }).eq("roomid", roomId);
+        await supabase
+          .from("room")
+          .update({ now: Number(currentRoom.now) + 1, pano: null })
+          .eq("roomid", roomId);
       }
     }
   };
@@ -76,7 +99,7 @@ export default function MultiGame() {
     const currentQ = nowQuestionRef.current;
     setActivePlayersCount(activePlayersData.length);
 
-    const answeredCount = activePlayersData.filter(p => p.answers && p.answers.length >= currentQ).length;
+    const answeredCount = activePlayersData.filter((p) => p.answers && p.answers.length >= currentQ).length;
     setAnsweredPlayersCount(answeredCount);
 
     if (answeredCount >= activePlayersData.length && activePlayersData.length > 0) {
@@ -167,11 +190,6 @@ export default function MultiGame() {
             }
             return prevPhase;
           });
-
-          // if (newRoom.stats === "finished") {
-          //   isFinishingRef.current = true;
-          //   navigate("/multiresult"); 
-          // }
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "players" }, (payload: any) => {
           if (!isMounted) return;
@@ -210,6 +228,7 @@ export default function MultiGame() {
     }
   }, [roomData?.stats, navigate]);
 
+  // ホストが問題を取得してroomに反映
   useEffect(() => {
     if (isHost && phase === "fetching" && roomData) {
       let isFetching = true;
@@ -225,7 +244,7 @@ export default function MultiGame() {
           let pano = panoramaRef.current.getPano();
           if (!pano) {
             pano = await new Promise<string>((resolve) => {
-              const listener = google.maps.event.addListener(panoramaRef.current!, 'pano_changed', () => {
+              const listener = google.maps.event.addListener(panoramaRef.current!, "pano_changed", () => {
                 const newPano = panoramaRef.current!.getPano();
                 if (newPano) {
                   google.maps.event.removeListener(listener);
@@ -243,29 +262,67 @@ export default function MultiGame() {
           const updatedAnswers = [...(roomData.answers || [])];
           updatedAnswers[nowQuestion - 1] = q.prefName;
 
-          await supabase.from("room").update({
-            lat, long: lng, pano, answers: updatedAnswers
-          }).eq("roomid", roomId);
-
+          await supabase
+            .from("room")
+            .update({
+              lat,
+              long: lng,
+              pano,
+              answers: updatedAnswers,
+            })
+            .eq("roomid", roomId);
         } catch (error) {
           console.error("問題取得エラー:", error);
         }
       };
       fetchQuestion();
-      return () => { isFetching = false; };
+      return () => {
+        isFetching = false;
+      };
     }
   }, [isHost, phase, roomData, nowQuestion, roomId]);
 
+  // ★追加：fetchingが長引いたクライアントを自動で「回答済み」にして進行を止めない
+  useEffect(() => {
+    if (!roomId || !playerId) return;
+    if (phase !== "fetching") return;
+    if (!roomData) return;
+
+    const currentQ = nowQuestionRef.current;
+    const timeoutMs = 12000; // 12秒待っても来なければスキップ（必要なら調整）
+
+    const t = window.setTimeout(async () => {
+      if (phaseRef.current !== "fetching") return;
+      if (isFetchTimeoutHandledRef.current) return;
+      isFetchTimeoutHandledRef.current = true;
+
+      // UI表示：読み込み失敗
+      setPanoLoadFailed(true);
+
+      // 回答を強制確定（OTHER=3）
+      const updated = [...(myAnswersRef.current ?? [])];
+      updated[currentQ - 1] = 3;
+
+      setMyAnswers(updated);
+
+      await supabase.from("players").update({ answers: updated }).eq("playerid", playerId);
+
+      // 以後は待機（これで操作不能＆「待機中UI」へ）
+      setPhase("waiting_others");
+    }, timeoutMs);
+
+    return () => window.clearTimeout(t);
+  }, [phase, roomId, playerId, roomData]);
+
+  // タイマー（playing / revealed_local の時だけカウント）
   useEffect(() => {
     if (phase !== "playing" && phase !== "revealed_local") return;
 
     if (timeLeft <= 0) {
-      // 【追加】既にタイムアウト処理中なら弾く
       if (isTimeoutHandledRef.current) return;
-      isTimeoutHandledRef.current = true; // ロックをかける
+      isTimeoutHandledRef.current = true;
 
       const handleTimeout = async () => {
-        // 【修正】非同期処理（await）の前に、先にフェーズを変更してUIを切り替える
         setPhase("timeout_reveal");
 
         if (phase === "playing" || phase === "revealed_local") {
@@ -277,7 +334,7 @@ export default function MultiGame() {
           if (selectedAnswer === null && roomData) {
             const pseudoQuestion: Question = {
               panoLatLng: new google.maps.LatLng(roomData.lat, roomData.long),
-              prefName: roomData.answers[nowQuestion - 1]
+              prefName: roomData.answers[nowQuestion - 1],
             };
             const ansResult = gameRef.current?.checkResult(pseudoQuestion, "OTHER");
             if (ansResult) {
@@ -286,7 +343,6 @@ export default function MultiGame() {
             }
           }
 
-          // DB更新は一番最後に実行する
           await supabase.from("players").update({ answers: updatedMyAnswers }).eq("playerid", playerId);
         }
       };
@@ -298,6 +354,7 @@ export default function MultiGame() {
     return () => clearInterval(timer);
   }, [phase, timeLeft, selectedAnswer, myAnswers, nowQuestion, playerId, roomData]);
 
+  // timeout_reveal の時はホストが次へ（既存）
   useEffect(() => {
     if (phase === "timeout_reveal") {
       const timer = setTimeout(() => {
@@ -307,8 +364,15 @@ export default function MultiGame() {
     }
   }, [phase, isHost]);
 
+  // 回答マップ描画
   useEffect(() => {
-    if ((phase === "revealed_local" || phase === "timeout_reveal") && answerMapRef.current && result && roomData && gameRef.current) {
+    if (
+      (phase === "revealed_local" || phase === "timeout_reveal") &&
+      answerMapRef.current &&
+      result &&
+      roomData &&
+      gameRef.current
+    ) {
       answerMapRef.current.innerHTML = "";
       requestAnimationFrame(() => {
         mapRef.current = gameRef.current!.renderAnswerMap(answerMapRef.current!, result);
@@ -329,7 +393,7 @@ export default function MultiGame() {
 
     const pseudoQuestion: Question = {
       panoLatLng: new google.maps.LatLng(roomData.lat, roomData.long),
-      prefName: roomData.answers[nowQuestion - 1]
+      prefName: roomData.answers[nowQuestion - 1],
     };
 
     const ansResult = gameRef.current.checkResult(pseudoQuestion, getAnswerString(ansNum));
@@ -343,9 +407,7 @@ export default function MultiGame() {
     updatedMyAnswers[nowQuestion - 1] = selectedAnswer ?? 3;
     setMyAnswers(updatedMyAnswers);
 
-    await supabase.from("players").update({
-      answers: updatedMyAnswers
-    }).eq("playerid", playerId);
+    await supabase.from("players").update({ answers: updatedMyAnswers }).eq("playerid", playerId);
   };
 
   const handleLeaveGame = async () => {
@@ -359,12 +421,13 @@ export default function MultiGame() {
     navigate("/mainpage");
   };
 
-  const getBtnClass = () => [
-    "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
-    phase !== "playing" ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
-  ].join(" ");
+  const getBtnClass = () =>
+    [
+      "w-[120px] py-2 rounded-lg border border-gray-300 bg-gray-50 font-bold transition",
+      phase !== "playing" ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100 active:scale-95",
+    ].join(" ");
 
-  // ★ 最終問題かどうかの判定（数値変換で安全に）
+  // 最終問題かどうか
   const isLastQuestion = roomData && Number(nowQuestion) >= Number(roomData.amount);
 
   return (
@@ -400,18 +463,32 @@ export default function MultiGame() {
           </div>
         </div>
 
-        {/* Pano：vhで高さを可変に。上限も付ける */}
+        {/* Pano */}
         <div className="relative w-full rounded-lg overflow-hidden border border-gray-300 bg-white h-[45vh] min-h-[260px] max-h-[520px] sm:h-[50vh] md:h-[520px]">
           <div ref={panoRef} className="w-full h-full" />
-          {phase === "fetching" && (
+
+          {(phase === "fetching" || panoLoadFailed) && (
             <div className="absolute inset-0 bg-black/70 flex flex-col justify-center items-center z-10 text-white px-4 text-center">
-              <div className="text-xl sm:text-2xl font-bold">景色を探しています...</div>
-              <div className="text-xs sm:text-sm mt-2 opacity-90">少しお待ちください</div>
+              {!panoLoadFailed ? (
+                <>
+                  <div className="text-xl sm:text-2xl font-bold">景色を探しています...</div>
+                  <div className="text-xs sm:text-sm mt-2 opacity-90">少しお待ちください</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xl sm:text-2xl font-bold text-red-200">
+                    StreetViewの読み込みに失敗しました
+                  </div>
+                  <div className="text-xs sm:text-sm mt-2 opacity-90">
+                    自動的にスキップして待機します... ({answeredPlayersCount}/{activePlayersCount})
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* Answer buttons：スマホは折り返し・ボタン幅可変 */}
+        {/* Answer buttons */}
         <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-5 mt-4 min-h-[50px]">
           <button
             onClick={() => handleAnswerClick(0)}
@@ -437,7 +514,7 @@ export default function MultiGame() {
         </div>
       </div>
 
-      {/* Result Modal：スマホで高さ溢れしないように scroll + map 高さ可変 */}
+      {/* Result Modal */}
       {(phase === "revealed_local" || phase === "waiting_others" || phase === "timeout_reveal") &&
         roomData &&
         result && (
@@ -500,7 +577,7 @@ export default function MultiGame() {
           </div>
         )}
 
-      {/* Confirm Modal：スマホで横幅いっぱい + padding */}
+      {/* Confirm Modal */}
       {isConfirmOpen && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-[1001] p-3">
           <div className="bg-white p-6 sm:p-8 rounded-xl text-center w-full max-w-sm shadow-[0_4px_15px_rgba(0,0,0,0.3)]">
